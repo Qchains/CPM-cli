@@ -15,6 +15,8 @@
 #include "cpm_package.h"
 #include "cpm_promise.h"
 #include "cpm_pmll.h"
+#include "cpm_deps.h"
+#include "cpm_semver.h"
 
 // --- Install Operation Data ---
 typedef struct {
