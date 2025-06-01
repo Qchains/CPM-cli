@@ -20,31 +20,19 @@ static bool cpm_is_initialized = false;
 
 // --- Simple Logging Implementation ---
 void cpm_log_message_impl(int level, const char* file, int line, const char* format, ...) {
-    if (level > global_cpm_config.log_level) {
-        return;
-    }
-
-    time_t now = time(NULL);
-    char time_buf[32];
-    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
-
-    FILE* out_stream = global_cpm_config.log_stream ? global_cpm_config.log_stream : stderr;
-
-    fprintf(out_stream, "[%s] ", time_buf);
-    switch (level) {
-        case CPM_LOG_ERROR: fprintf(out_stream, "ERROR "); break;
-        case CPM_LOG_WARN:  fprintf(out_stream, "WARN  "); break;
-        case CPM_LOG_INFO:  fprintf(out_stream, "INFO  "); break;
-        case CPM_LOG_DEBUG: fprintf(out_stream, "DEBUG "); break;
-        case CPM_LOG_TRACE: fprintf(out_stream, "TRACE "); break;
-    }
+    (void)file; // Suppress unused parameter warning
+    (void)line; // Suppress unused parameter warning
+    
+    if (!global_cpm_config) return;
+    if (global_cpm_config->quiet && level > CPM_LOG_ERROR) return;
+    if (!global_cpm_config->verbose && level > CPM_LOG_INFO) return;
 
     va_list args;
     va_start(args, format);
-    vfprintf(out_stream, format, args);
+    vfprintf(stderr, format, args);
     va_end(args);
-    fprintf(out_stream, "\n");
-    fflush(out_stream);
+    fprintf(stderr, "\n");
+    fflush(stderr);
 }
 
 // Macro to simplify logging calls
