@@ -192,7 +192,7 @@ Promise* pmll_execute_hardened_operation(
     printf("[PMLL] Queued hardened operation on resource: %s\n", hq->resource_id);
     
     // Return the promise for this specific operation
-    return operation_specific_deferred->promise;
+    return promise_defer_get_promise(operation_specific_deferred);
 }
 
 // --- Global PMLL Management ---
