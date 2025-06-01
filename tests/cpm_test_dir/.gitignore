@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+lib/
+*.o
+*.a
+*.so
+*.dylib
+
+# CPM modules
+cpm_modules/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
