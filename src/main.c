@@ -62,10 +62,11 @@ int main(int argc, char* argv[]) {
         return CPM_SUCCESS;
     }
 
-    // Parse options
+    // Parse options and find package name
     bool save = false;
     bool save_dev = false;
     bool global = false;
+    char* package_spec = NULL;
     
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--save") == 0 || strcmp(argv[i], "-S") == 0) {
@@ -78,6 +79,9 @@ int main(int argc, char* argv[]) {
             ctx.verbose = true;
         } else if (strcmp(argv[i], "--dry-run") == 0) {
             ctx.dry_run = true;
+        } else if (argv[i][0] != '-') {
+            // This is the package name
+            package_spec = argv[i];
         }
     }
 
