@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "make clean && make",
-    "install": "npm run build",
+    "postinstall": "node install.js",
     "test": "make test",
     "prepublishOnly": "npm run build"
   },
