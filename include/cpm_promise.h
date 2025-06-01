@@ -60,6 +60,9 @@ Promise* promise_all(Promise* promises[], size_t count);
 PromiseState promise_get_state(const Promise* p);
 PromiseValue promise_get_value(const Promise* p);
 
+// --- Deferred Promise Access ---
+Promise* promise_defer_get_promise(PromiseDeferred* deferred);
+
 // --- Event Loop Simulation (for async behavior) ---
 void init_event_loop(void);
 void enqueue_microtask(void (*task)(void* data), void* data);
