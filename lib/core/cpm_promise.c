@@ -462,38 +462,13 @@ void free_event_loop(void) {
     event_loop.initialized = false;
 }
 
-// --- Q.nfcall() Implementation ---
-typedef struct {
-    NodeCallback cb;
-    void* user_data;
-    PromiseDeferred* deferred;
-} NfcallData;
-
-void nfcall_wrapper(void* err, PromiseValue result, void* user_data) {
-    NfcallData* data = (NfcallData*)user_data;
-    if (err) {
-        promise_defer_reject(data->deferred, err);
-    } else {
-        promise_defer_resolve(data->deferred, result);
-    }
-    free(data);
+// --- Promise State Access ---
+PromiseState promise_get_state(const Promise* p) {
+    if (!p) return PROMISE_PENDING;
+    return p->state;
 }
 
-Promise* promise_nfcall(NodeCallback cb, void* user_data) {
-    PromiseDeferred* deferred = promise_defer_create();
-    if (!deferred) return NULL;
-    
-    NfcallData* data = (NfcallData*)malloc(sizeof(NfcallData));
-    if (!data) {
-        promise_defer_free(deferred);
-        return NULL;
-    }
-    
-    data->cb = cb;
-    data->user_data = user_data;
-    data->deferred = deferred;
-    
-    cb(NULL, NULL, data);
-    
-    return deferred->promise;
+PromiseValue promise_get_value(const Promise* p) {
+    if (!p) return NULL;
+    return p->value;
 }
