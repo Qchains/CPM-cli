@@ -1,0 +1,44 @@
+{
+  "name": "cpm",
+  "version": "1.0.0",
+  "description": "CPM - C Package Manager: A hardened C implementation of NPM with Q promises and PMLL",
+  "main": "index.js",
+  "bin": {
+    "cpm": "./bin/cpm"
+  },
+  "scripts": {
+    "build": "make clean && make",
+    "postinstall": "node install.js",
+    "test": "make test",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "package-manager",
+    "c",
+    "npm",
+    "cli",
+    "promises",
+    "dependencies"
+  ],
+  "author": "cpm",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cpm/cpm.git"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "dependencies": {
+    "node-gyp": "^10.0.0"
+  },
+  "devDependencies": {
+    "mocha": "^10.0.0",
+    "chai": "^4.3.0"
+  }
+}
