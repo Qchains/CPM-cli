@@ -229,7 +229,7 @@ CPM_Result cpm_handle_install_command(int argc, char* argv[], const CPM_Config* 
     
     for (int i = 0; i < timeout_seconds * 10 && !completed; i++) {
         usleep(100000); // 100ms
-        if (all_promise->state != PROMISE_PENDING) {
+        if (promise_get_state(all_promise) != PROMISE_PENDING) {
             completed = true;
         }
     }
