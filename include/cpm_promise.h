@@ -56,8 +56,9 @@ void promise_defer_free(PromiseDeferred* deferred);
 // --- Q.all() API ---
 Promise* promise_all(Promise* promises[], size_t count);
 
-// --- Q.nfcall() API (Node.js-style callback wrapping) ---
-Promise* promise_nfcall(NodeCallback cb, void* user_data);
+// --- Promise State Access ---
+PromiseState promise_get_state(const Promise* p);
+PromiseValue promise_get_value(const Promise* p);
 
 // --- Event Loop Simulation (for async behavior) ---
 void init_event_loop(void);
