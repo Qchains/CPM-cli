@@ -273,7 +273,7 @@ CPM_Result cpm_handle_install_command(int argc, char* argv[], const CPM_Config* 
         return CPM_RESULT_SUCCESS;
     } else {
         printf("[CPM Install] Some packages failed to install: %s\n", 
-               all_promise->value ? (char*)all_promise->value : "Unknown error");
+               promise_get_value(all_promise) ? (char*)promise_get_value(all_promise) : "Unknown error");
         
         promise_free(all_promise);
         for (int i = 0; i < argc; i++) {
