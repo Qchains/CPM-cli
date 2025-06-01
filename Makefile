@@ -3,7 +3,7 @@
 
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -g -O2
-LDFLAGS = -lpthread
+LDFLAGS = -lpthread -lcurl
 
 # Directories
 SRCDIR = lib
