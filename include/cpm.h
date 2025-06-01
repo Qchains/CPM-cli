@@ -2,24 +2,40 @@
  * File: include/cpm.h
  * Description: Main public API header for CPM (C Package Manager) operations.
  * This header defines the core functions for initializing the CPM environment,
- * executing commands, and cleaning up resources.
+ * executing commands, and cleaning up resources. It's used by the
+ * CPM CLI and potentially by other tools linking against CPM as a library.
  * Author: Dr. Q Josef Kurk Edwards
  */
 
 #ifndef CPM_H
 #define CPM_H
 
-#include "cpm_types.h"
-#include "cpm_promise.h"
-#include "cpm_package.h"
-#include "cpm_pmll.h"
+#include <stdio.h> // For FILE* etc.
+#include <stdbool.h> // For bool
+#include <stddef.h>  // For size_t
+#include "cpm_types.h"   // Common type definitions (e.g., CPM_Result, Package)
+#include "cpm_promise.h" // Q Promise library API
+#include "cpm_package.h" // Package structure and parsing functions
+#include "cpm_pmll.h"    // PMLL hardened queue for file operations
+
+// --- CPM Global Configuration ---
+typedef struct {
+    const char* working_directory;
+    const char* modules_directory; // e.g., "cpm_modules"
+    const char* registry_url;      // e.g., "https://registry.cpm.example.org"
+    const char* log_file_path;     // Path to log file, if not stderr/stdout
+    FILE* log_stream;              // Defaults to stderr
+    int log_level;                 // e.g., CPM_LOG_INFO
+} CPM_Config;
 
 // --- Core CPM Lifecycle Functions ---
 
 /**
  * @brief Initializes the CPM environment.
- * Sets up global configurations, logging, PMLL queues, PMDK pools, etc.
+ *
+ * Sets up global configurations, logging, PMLL queues, etc.
  * Must be called before any other CPM operations.
+ *
  * @param config A pointer to a CPM_Config struct with initial settings.
  * If NULL, default settings will be used.
  * @return CPM_RESULT_SUCCESS on success, or an error code on failure.
@@ -28,7 +44,9 @@ CPM_Result cpm_initialize(const CPM_Config* config);
 
 /**
  * @brief Executes a CPM command.
+ *
  * Main dispatcher for commands like "install", "publish", "run", etc.
+ *
  * @param command The name of the command to execute.
  * @param argc The number of arguments for the command.
  * @param argv An array of argument strings for the command.
@@ -38,6 +56,7 @@ CPM_Result cpm_execute_command(const char* command, int argc, char* argv[]);
 
 /**
  * @brief Cleans up CPM resources.
+ *
  * Frees global resources, ensures pending operations are handled.
  * Should be called before program exit.
  */
@@ -50,31 +69,5 @@ CPM_Result cpm_handle_search_command(int argc, char* argv[], const CPM_Config* c
 CPM_Result cpm_handle_run_script_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_init_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_help_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_cache_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_audit_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_update_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_uninstall_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_version_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_config_command(int argc, char* argv[], const CPM_Config* config);
-
-// --- Utility Functions ---
-
-/**
- * @brief Gets the current CPM configuration.
- * @return Pointer to current configuration (read-only)
- */
-const CPM_Config* cpm_get_config(void);
-
-/**
- * @brief Checks if CPM is initialized.
- * @return true if initialized, false otherwise
- */
-bool cpm_is_initialized(void);
-
-/**
- * @brief Gets the CPM version string.
- * @return Version string
- */
-const char* cpm_get_version(void);
 
 #endif // CPM_H
