@@ -178,7 +178,7 @@ Promise* cpm_resolve_dependencies(Package* pkg, const char* modules_dir) {
     promise_resolve(initial_promise, NULL);
     promise_then(initial_promise, resolve_next_dependency, NULL, data);
     
-    return data->deferred->promise;
+    return promise_defer_get_promise(data->deferred);
 }
 
 // --- Main Install Command Handler ---
