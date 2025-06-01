@@ -1,0 +1,41 @@
+name: Documentation Enhancement
+description: Suggest improvements to CPM documentation
+title: "[Docs]: "
+labels: ["documentation", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve CPM's documentation!
+  
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs improvement?
+      options:
+        - API Reference
+        - User Guide
+        - Installation Instructions
+        - Examples
+        - Code Comments
+        - README
+        - Other
+    validations:
+      required: true
+  
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Suggested Improvement
+      description: What improvement would you like to see?
+      placeholder: Describe the documentation enhancement you'd like to see
+    validations:
+      required: true
+  
+  - type: textarea
+    id: current-docs
+    attributes:
+      label: Current Documentation Issue
+      description: What's wrong with the current documentation?
+      placeholder: Describe what's confusing or missing in the current docs

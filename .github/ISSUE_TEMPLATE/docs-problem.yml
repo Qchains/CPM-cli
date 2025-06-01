@@ -1,0 +1,34 @@
+name: Documentation Problem
+description: Report an issue with CPM documentation
+title: "[Docs Problem]: "
+labels: ["documentation", "bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Found an issue with CPM's documentation? Let us know!
+  
+  - type: input
+    id: doc-location
+    attributes:
+      label: Documentation Location
+      description: Where did you find this issue?
+      placeholder: e.g., README.md, docs/api/promises.md
+    validations:
+      required: true
+  
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: Describe the documentation issue
+      placeholder: The documentation says X but it should say Y
+    validations:
+      required: true
+  
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should it say instead?
+      description: How should the documentation be corrected?
+      placeholder: Suggest the correct documentation
