@@ -1,126 +1,187 @@
 /*
  * File: lib/core/cpm_package.c
- * Description: Package structure and parsing implementation for CPM
+ * Description: Package structure and parsing functions for CPM.
+ * Handles cpm_package.spec files and package metadata.
  * Author: Dr. Q Josef Kurk Edwards
  */
 
-#include "../../include/cpm_package.h"
-#include "../../include/cpm_promise.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cjson/cJSON.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include "cpm_package.h"
+#include "cpm_promise.h"
+#include "cpm_pmll.h"
 
 // --- Package Creation and Destruction ---
-
-Package* cpm_package_create(void) {
-    Package* pkg = malloc(sizeof(Package));
-    if (!pkg) return NULL;
-    
-    memset(pkg, 0, sizeof(Package));
-    
-    // Initialize dynamic arrays
-    pkg->dep_capacity = 4;
-    pkg->dependencies = malloc(pkg->dep_capacity * sizeof(char*));
-    
-    pkg->dev_dep_capacity = 4;
-    pkg->dev_dependencies = malloc(pkg->dev_dep_capacity * sizeof(char*));
-    
-    pkg->script_capacity = 4;
-    pkg->scripts = malloc(pkg->script_capacity * sizeof(char*));
-    
-    pkg->include_path_count = 0;
-    pkg->include_paths = malloc(4 * sizeof(char*));
-    
-    pkg->library_path_count = 0;
-    pkg->library_paths = malloc(4 * sizeof(char*));
-    
-    pkg->linked_library_count = 0;
-    pkg->linked_libraries = malloc(4 * sizeof(char*));
-    
-    if (!pkg->dependencies || !pkg->dev_dependencies || !pkg->scripts ||
-        !pkg->include_paths || !pkg->library_paths || !pkg->linked_libraries) {
-        cpm_package_free(pkg);
+Package* cpm_create_package(void) {
+    Package* pkg = (Package*)malloc(sizeof(Package));
+    if (!pkg) {
         return NULL;
     }
     
+    memset(pkg, 0, sizeof(Package));
     return pkg;
 }
 
-void cpm_package_free(Package* pkg) {
+void cpm_free_package(Package* pkg) {
     if (!pkg) return;
     
-    // Free basic strings
     free(pkg->name);
     free(pkg->version);
     free(pkg->description);
     free(pkg->author);
     free(pkg->license);
-    free(pkg->homepage);
-    free(pkg->repository_url);
+    
+    // Free dependencies
+    for (size_t i = 0; i < pkg->dep_count; i++) {
+        free(pkg->dependencies[i]);
+    }
+    free(pkg->dependencies);
+    
+    // Free scripts
+    for (size_t i = 0; i < pkg->script_count; i++) {
+        free(pkg->scripts[i]);
+    }
+    free(pkg->scripts);
+    
     free(pkg->build_command);
-    free(pkg->test_command);
     free(pkg->install_command);
-    free(pkg->pmem_pool_size);
-    
-    // Free dependency arrays
-    if (pkg->dependencies) {
-        for (size_t i = 0; i < pkg->dep_count; i++) {
-            free(pkg->dependencies[i]);
-        }
-        free(pkg->dependencies);
-    }
-    
-    if (pkg->dev_dependencies) {
-        for (size_t i = 0; i < pkg->dev_dep_count; i++) {
-            free(pkg->dev_dependencies[i]);
-        }
-        free(pkg->dev_dependencies);
-    }
-    
-    // Free script arrays
-    if (pkg->scripts) {
-        for (size_t i = 0; i < pkg->script_count; i++) {
-            free(pkg->scripts[i]);
-        }
-        free(pkg->scripts);
-    }
-    
-    // Free include paths
-    if (pkg->include_paths) {
-        for (size_t i = 0; i < pkg->include_path_count; i++) {
-            free(pkg->include_paths[i]);
-        }
-        free(pkg->include_paths);
-    }
-    
-    // Free library paths
-    if (pkg->library_paths) {
-        for (size_t i = 0; i < pkg->library_path_count; i++) {
-            free(pkg->library_paths[i]);
-        }
-        free(pkg->library_paths);
-    }
-    
-    // Free linked libraries
-    if (pkg->linked_libraries) {
-        for (size_t i = 0; i < pkg->linked_library_count; i++) {
-            free(pkg->linked_libraries[i]);
-        }
-        free(pkg->linked_libraries);
-    }
-    
+    free(pkg->test_command);
     free(pkg);
 }
 
-// --- Package Parsing ---
+// --- Simple JSON-like Parser for cpm_package.spec ---
+// This is a simplified parser - in a real implementation, you'd use a proper JSON library
+
+char* extract_json_string_value(const char* json, const char* key) {
+    char search_pattern[256];
+    snprintf(search_pattern, sizeof(search_pattern), "\"%s\":", key);
+    
+    char* key_pos = strstr(json, search_pattern);
+    if (!key_pos) {
+        return NULL;
+    }
+    
+    // Move to after the key
+    key_pos += strlen(search_pattern);
+    
+    // Skip whitespace
+    while (*key_pos == ' ' || *key_pos == '\t' || *key_pos == '\n') {
+        key_pos++;
+    }
+    
+    // Expect opening quote
+    if (*key_pos != '"') {
+        return NULL;
+    }
+    key_pos++; // Skip opening quote
+    
+    // Find closing quote
+    char* end_pos = strchr(key_pos, '"');
+    if (!end_pos) {
+        return NULL;
+    }
+    
+    // Extract value
+    size_t value_len = end_pos - key_pos;
+    char* value = (char*)malloc(value_len + 1);
+    if (!value) {
+        return NULL;
+    }
+    
+    strncpy(value, key_pos, value_len);
+    value[value_len] = '\0';
+    
+    return value;
+}
+
+char** extract_json_array_values(const char* json, const char* key, size_t* count) {
+    *count = 0;
+    
+    char search_pattern[256];
+    snprintf(search_pattern, sizeof(search_pattern), "\"%s\":", key);
+    
+    char* key_pos = strstr(json, search_pattern);
+    if (!key_pos) {
+        return NULL;
+    }
+    
+    // Move to after the key
+    key_pos += strlen(search_pattern);
+    
+    // Skip whitespace
+    while (*key_pos == ' ' || *key_pos == '\t' || *key_pos == '\n') {
+        key_pos++;
+    }
+    
+    // Expect opening bracket
+    if (*key_pos != '[') {
+        return NULL;
+    }
+    key_pos++;
+    
+    // Find closing bracket
+    char* end_pos = strchr(key_pos, ']');
+    if (!end_pos) {
+        return NULL;
+    }
+    
+    // Simple array parsing - split by commas and extract quoted strings
+    char** values = NULL;
+    size_t capacity = 0;
+    
+    char* current = key_pos;
+    while (current < end_pos) {
+        // Skip whitespace
+        while (*current == ' ' || *current == '\t' || *current == '\n' || *current == ',') {
+            current++;
+        }
+        
+        if (current >= end_pos || *current != '"') {
+            break;
+        }
+        
+        current++; // Skip opening quote
+        char* value_end = strchr(current, '"');
+        if (!value_end || value_end > end_pos) {
+            break;
+        }
+        
+        // Extract value
+        size_t value_len = value_end - current;
+        char* value = (char*)malloc(value_len + 1);
+        if (!value) {
+            break;
+        }
+        
+        strncpy(value, current, value_len);
+        value[value_len] = '\0';
+        
+        // Add to array
+        if (*count >= capacity) {
+            capacity = capacity == 0 ? 4 : capacity * 2;
+            values = (char**)realloc(values, capacity * sizeof(char*));
+            if (!values) {
+                free(value);
+                break;
+            }
+        }
+        
+        values[*count] = value;
+        (*count)++;
+        
+        current = value_end + 1;
+    }
+    
+    return values;
+}
 
 Package* cpm_parse_package_file(const char* filepath) {
-    if (!filepath) return NULL;
-    
     FILE* fp = fopen(filepath, "r");
     if (!fp) {
-        printf("[CPM] Failed to open package file: %s\n", filepath);
+        printf("[CPM] Could not open package file: %s\n", filepath);
         return NULL;
     }
     
@@ -129,433 +190,336 @@ Package* cpm_parse_package_file(const char* filepath) {
     long file_size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
     
-    if (file_size <= 0) {
+    char* content = (char*)malloc(file_size + 1);
+    if (!content) {
         fclose(fp);
         return NULL;
     }
     
-    char* json_data = malloc(file_size + 1);
-    if (!json_data) {
-        fclose(fp);
-        return NULL;
-    }
-    
-    size_t read_size = fread(json_data, 1, file_size, fp);
+    fread(content, 1, file_size, fp);
+    content[file_size] = '\0';
     fclose(fp);
-    json_data[read_size] = '';
     
-    Package* pkg = cpm_parse_package_json(json_data);
-    free(json_data);
-    
-    return pkg;
-}
-
-static void parse_string_array(cJSON* json_array, char*** array, size_t* count, size_t* capacity) {
-    if (!cJSON_IsArray(json_array)) return;
-    
-    int array_size = cJSON_GetArraySize(json_array);
-    
-    // Ensure capacity
-    if (*capacity < (size_t)array_size) {
-        *capacity = array_size;
-        *array = realloc(*array, *capacity * sizeof(char*));
-    }
-    
-    *count = 0;
-    cJSON* item = NULL;
-    cJSON_ArrayForEach(item, json_array) {
-        if (cJSON_IsString(item)) {
-            (*array)[*count] = strdup(cJSON_GetStringValue(item));
-            (*count)++;
-        }
-    }
-}
-
-Package* cpm_parse_package_json(const char* json_data) {
-    if (!json_data) return NULL;
-    
-    cJSON* json = cJSON_Parse(json_data);
-    if (!json) {
-        printf("[CPM] Failed to parse JSON package data\n");
-        return NULL;
-    }
-    
-    Package* pkg = cpm_package_create();
+    Package* pkg = cpm_create_package();
     if (!pkg) {
-        cJSON_Delete(json);
+        free(content);
         return NULL;
     }
     
-    // Parse basic fields
-    cJSON* name = cJSON_GetObjectItem(json, "name");
-    if (cJSON_IsString(name)) {
-        pkg->name = strdup(cJSON_GetStringValue(name));
-    }
+    // Parse JSON-like content
+    pkg->name = extract_json_string_value(content, "name");
+    pkg->version = extract_json_string_value(content, "version");
+    pkg->description = extract_json_string_value(content, "description");
+    pkg->author = extract_json_string_value(content, "author");
+    pkg->license = extract_json_string_value(content, "license");
+    pkg->build_command = extract_json_string_value(content, "build");
+    pkg->install_command = extract_json_string_value(content, "install");
+    pkg->test_command = extract_json_string_value(content, "test");
     
-    cJSON* version = cJSON_GetObjectItem(json, "version");
-    if (cJSON_IsString(version)) {
-        pkg->version = strdup(cJSON_GetStringValue(version));
-    }
+    // Parse dependencies array
+    pkg->dependencies = extract_json_array_values(content, "dependencies", &pkg->dep_count);
     
-    cJSON* description = cJSON_GetObjectItem(json, "description");
-    if (cJSON_IsString(description)) {
-        pkg->description = strdup(cJSON_GetStringValue(description));
-    }
+    // Parse scripts array
+    pkg->scripts = extract_json_array_values(content, "scripts", &pkg->script_count);
     
-    cJSON* author = cJSON_GetObjectItem(json, "author");
-    if (cJSON_IsString(author)) {
-        pkg->author = strdup(cJSON_GetStringValue(author));
-    }
+    free(content);
     
-    cJSON* license = cJSON_GetObjectItem(json, "license");
-    if (cJSON_IsString(license)) {
-        pkg->license = strdup(cJSON_GetStringValue(license));
-    }
+    printf("[CPM] Parsed package: %s@%s\n", 
+           pkg->name ? pkg->name : "unknown", 
+           pkg->version ? pkg->version : "unknown");
     
-    cJSON* homepage = cJSON_GetObjectItem(json, "homepage");
-    if (cJSON_IsString(homepage)) {
-        pkg->homepage = strdup(cJSON_GetStringValue(homepage));
-    }
-    
-    cJSON* repository = cJSON_GetObjectItem(json, "repository");
-    if (cJSON_IsString(repository)) {
-        pkg->repository_url = strdup(cJSON_GetStringValue(repository));
-    }
-    
-    // Parse build commands
-    cJSON* build_command = cJSON_GetObjectItem(json, "build_command");
-    if (cJSON_IsString(build_command)) {
-        pkg->build_command = strdup(cJSON_GetStringValue(build_command));
-    }
-    
-    cJSON* test_command = cJSON_GetObjectItem(json, "test_command");
-    if (cJSON_IsString(test_command)) {
-        pkg->test_command = strdup(cJSON_GetStringValue(test_command));
-    }
-    
-    cJSON* install_command = cJSON_GetObjectItem(json, "install_command");
-    if (cJSON_IsString(install_command)) {
-        pkg->install_command = strdup(cJSON_GetStringValue(install_command));
-    }
-    
-    // Parse arrays
-    cJSON* dependencies = cJSON_GetObjectItem(json, "dependencies");
-    if (dependencies) {
-        parse_string_array(dependencies, &pkg->dependencies, &pkg->dep_count, &pkg->dep_capacity);
-    }
-    
-    cJSON* dev_dependencies = cJSON_GetObjectItem(json, "dev_dependencies");
-    if (dev_dependencies) {
-        parse_string_array(dev_dependencies, &pkg->dev_dependencies, &pkg->dev_dep_count, &pkg->dev_dep_capacity);
-    }
-    
-    cJSON* scripts = cJSON_GetObjectItem(json, "scripts");
-    if (scripts) {
-        parse_string_array(scripts, &pkg->scripts, &pkg->script_count, &pkg->script_capacity);
-    }
-    
-    cJSON* include_paths = cJSON_GetObjectItem(json, "include_paths");
-    if (include_paths) {
-        parse_string_array(include_paths, &pkg->include_paths, &pkg->include_path_count, &pkg->include_path_count);
-    }
-    
-    cJSON* library_paths = cJSON_GetObjectItem(json, "library_paths");
-    if (library_paths) {
-        parse_string_array(library_paths, &pkg->library_paths, &pkg->library_path_count, &pkg->library_path_count);
-    }
-    
-    cJSON* linked_libraries = cJSON_GetObjectItem(json, "linked_libraries");
-    if (linked_libraries) {
-        parse_string_array(linked_libraries, &pkg->linked_libraries, &pkg->linked_library_count, &pkg->linked_library_count);
-    }
-    
-    // Parse PMEM flags
-    cJSON* is_persistent = cJSON_GetObjectItem(json, "is_persistent");
-    if (cJSON_IsBool(is_persistent)) {
-        pkg->is_persistent = cJSON_IsTrue(is_persistent);
-    }
-    
-    cJSON* requires_pmem = cJSON_GetObjectItem(json, "requires_pmem");
-    if (cJSON_IsBool(requires_pmem)) {
-        pkg->requires_pmem = cJSON_IsTrue(requires_pmem);
-    }
-    
-    cJSON* pmem_pool_size = cJSON_GetObjectItem(json, "pmem_pool_size");
-    if (cJSON_IsString(pmem_pool_size)) {
-        pkg->pmem_pool_size = strdup(cJSON_GetStringValue(pmem_pool_size));
-    }
-    
-    cJSON_Delete(json);
     return pkg;
 }
 
-// --- Package Manipulation ---
-
-static CPM_Result resize_array(char*** array, size_t* count, size_t* capacity) {
-    if (*count >= *capacity) {
-        size_t new_capacity = (*capacity == 0) ? 4 : (*capacity * 2);
-        char** new_array = realloc(*array, new_capacity * sizeof(char*));
-        if (!new_array) {
-            return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
+CPM_Result cpm_save_package_file(const Package* pkg, const char* filepath) {
+    if (!pkg || !filepath) {
+        return CPM_RESULT_ERROR_INVALID_ARGS;
+    }
+    
+    FILE* fp = fopen(filepath, "w");
+    if (!fp) {
+        return CPM_RESULT_ERROR_FILE_OPERATION;
+    }
+    
+    fprintf(fp, "{\n");
+    
+    if (pkg->name) {
+        fprintf(fp, "  \"name\": \"%s\",\n", pkg->name);
+    }
+    if (pkg->version) {
+        fprintf(fp, "  \"version\": \"%s\",\n", pkg->version);
+    }
+    if (pkg->description) {
+        fprintf(fp, "  \"description\": \"%s\",\n", pkg->description);
+    }
+    if (pkg->author) {
+        fprintf(fp, "  \"author\": \"%s\",\n", pkg->author);
+    }
+    if (pkg->license) {
+        fprintf(fp, "  \"license\": \"%s\",\n", pkg->license);
+    }
+    
+    // Dependencies
+    if (pkg->dependencies && pkg->dep_count > 0) {
+        fprintf(fp, "  \"dependencies\": [\n");
+        for (size_t i = 0; i < pkg->dep_count; i++) {
+            fprintf(fp, "    \"%s\"%s\n", pkg->dependencies[i], 
+                   (i < pkg->dep_count - 1) ? "," : "");
         }
-        *array = new_array;
-        *capacity = new_capacity;
-    }
-    return CPM_RESULT_SUCCESS;
-}
-
-CPM_Result cpm_package_add_dependency(Package* pkg, const char* dependency) {
-    if (!pkg || !dependency) return CPM_RESULT_ERROR_INVALID_ARGS;
-    
-    CPM_Result result = resize_array(&pkg->dependencies, &pkg->dep_count, &pkg->dep_capacity);
-    if (result != CPM_RESULT_SUCCESS) return result;
-    
-    pkg->dependencies[pkg->dep_count] = strdup(dependency);
-    if (!pkg->dependencies[pkg->dep_count]) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
+        fprintf(fp, "  ],\n");
     }
     
-    pkg->dep_count++;
-    return CPM_RESULT_SUCCESS;
-}
-
-CPM_Result cpm_package_add_dev_dependency(Package* pkg, const char* dev_dependency) {
-    if (!pkg || !dev_dependency) return CPM_RESULT_ERROR_INVALID_ARGS;
-    
-    CPM_Result result = resize_array(&pkg->dev_dependencies, &pkg->dev_dep_count, &pkg->dev_dep_capacity);
-    if (result != CPM_RESULT_SUCCESS) return result;
-    
-    pkg->dev_dependencies[pkg->dev_dep_count] = strdup(dev_dependency);
-    if (!pkg->dev_dependencies[pkg->dev_dep_count]) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
+    // Scripts
+    if (pkg->scripts && pkg->script_count > 0) {
+        fprintf(fp, "  \"scripts\": [\n");
+        for (size_t i = 0; i < pkg->script_count; i++) {
+            fprintf(fp, "    \"%s\"%s\n", pkg->scripts[i], 
+                   (i < pkg->script_count - 1) ? "," : "");
+        }
+        fprintf(fp, "  ],\n");
     }
     
-    pkg->dev_dep_count++;
-    return CPM_RESULT_SUCCESS;
-}
-
-CPM_Result cpm_package_add_script(Package* pkg, const char* script) {
-    if (!pkg || !script) return CPM_RESULT_ERROR_INVALID_ARGS;
-    
-    CPM_Result result = resize_array(&pkg->scripts, &pkg->script_count, &pkg->script_capacity);
-    if (result != CPM_RESULT_SUCCESS) return result;
-    
-    pkg->scripts[pkg->script_count] = strdup(script);
-    if (!pkg->scripts[pkg->script_count]) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
+    if (pkg->build_command) {
+        fprintf(fp, "  \"build\": \"%s\",\n", pkg->build_command);
+    }
+    if (pkg->install_command) {
+        fprintf(fp, "  \"install\": \"%s\",\n", pkg->install_command);
+    }
+    if (pkg->test_command) {
+        fprintf(fp, "  \"test\": \"%s\"\n", pkg->test_command);
     }
     
-    pkg->script_count++;
-    return CPM_RESULT_SUCCESS;
-}
-
-CPM_Result cpm_package_add_include_path(Package* pkg, const char* include_path) {
-    if (!pkg || !include_path) return CPM_RESULT_ERROR_INVALID_ARGS;
+    fprintf(fp, "}\n");
+    fclose(fp);
     
-    // Simple resize for include paths
-    size_t capacity = pkg->include_path_count + 1;
-    char** new_array = realloc(pkg->include_paths, capacity * sizeof(char*));
-    if (!new_array) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
-    }
-    
-    pkg->include_paths = new_array;
-    pkg->include_paths[pkg->include_path_count] = strdup(include_path);
-    if (!pkg->include_paths[pkg->include_path_count]) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
-    }
-    
-    pkg->include_path_count++;
-    return CPM_RESULT_SUCCESS;
-}
-
-CPM_Result cpm_package_add_library_path(Package* pkg, const char* library_path) {
-    if (!pkg || !library_path) return CPM_RESULT_ERROR_INVALID_ARGS;
-    
-    size_t capacity = pkg->library_path_count + 1;
-    char** new_array = realloc(pkg->library_paths, capacity * sizeof(char*));
-    if (!new_array) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
-    }
-    
-    pkg->library_paths = new_array;
-    pkg->library_paths[pkg->library_path_count] = strdup(library_path);
-    if (!pkg->library_paths[pkg->library_path_count]) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
-    }
-    
-    pkg->library_path_count++;
-    return CPM_RESULT_SUCCESS;
-}
-
-CPM_Result cpm_package_add_linked_library(Package* pkg, const char* library) {
-    if (!pkg || !library) return CPM_RESULT_ERROR_INVALID_ARGS;
-    
-    size_t capacity = pkg->linked_library_count + 1;
-    char** new_array = realloc(pkg->linked_libraries, capacity * sizeof(char*));
-    if (!new_array) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
-    }
-    
-    pkg->linked_libraries = new_array;
-    pkg->linked_libraries[pkg->linked_library_count] = strdup(library);
-    if (!pkg->linked_libraries[pkg->linked_library_count]) {
-        return CPM_RESULT_ERROR_MEMORY_ALLOCATION;
-    }
-    
-    pkg->linked_library_count++;
+    printf("[CPM] Saved package file: %s\n", filepath);
     return CPM_RESULT_SUCCESS;
 }
 
 // --- Package Validation ---
-
-CPM_Result cpm_package_validate(const Package* pkg) {
-    if (!pkg) return CPM_RESULT_ERROR_INVALID_ARGS;
+bool cpm_package_validate(const Package* pkg) {
+    if (!pkg) return false;
     
-    if (!pkg->name || strlen(pkg->name) == 0) {
-        printf("[CPM] Package validation failed: missing name\n");
-        return CPM_RESULT_ERROR_PACKAGE_PARSE;
+    // Must have name and version
+    if (!pkg->name || !pkg->version) {
+        return false;
     }
     
-    if (!pkg->version || strlen(pkg->version) == 0) {
-        printf("[CPM] Package validation failed: missing version\n");
-        return CPM_RESULT_ERROR_PACKAGE_PARSE;
+    // Name must not be empty
+    if (strlen(pkg->name) == 0) {
+        return false;
     }
     
-    // Basic version format check (x.y.z)
-    int major, minor, patch;
-    if (sscanf(pkg->version, "%d.%d.%d", &major, &minor, &patch) != 3) {
-        printf("[CPM] Package validation failed: invalid version format: %s\n", pkg->version);
-        return CPM_RESULT_ERROR_PACKAGE_PARSE;
+    // Version must not be empty
+    if (strlen(pkg->version) == 0) {
+        return false;
     }
     
-    return CPM_RESULT_SUCCESS;
+    return true;
 }
 
-bool cpm_package_satisfies_version(const Package* pkg, const char* version_spec) {
-    if (!pkg || !pkg->version || !version_spec) return false;
+bool cpm_package_spec_exists(const char* directory) {
+    char spec_path[512];
+    snprintf(spec_path, sizeof(spec_path), "%s/cpm_package.spec", directory);
     
-    // Simple version comparison (would need more sophisticated parsing in reality)
-    if (strncmp(version_spec, ">=", 2) == 0) {
-        const char* required_version = version_spec + 2;
-        return strcmp(pkg->version, required_version) >= 0;
-    } else if (strncmp(version_spec, "<=", 2) == 0) {
-        const char* required_version = version_spec + 2;
-        return strcmp(pkg->version, required_version) <= 0;
-    } else if (strncmp(version_spec, ">", 1) == 0) {
-        const char* required_version = version_spec + 1;
-        return strcmp(pkg->version, required_version) > 0;
-    } else if (strncmp(version_spec, "<", 1) == 0) {
-        const char* required_version = version_spec + 1;
-        return strcmp(pkg->version, required_version) < 0;
-    } else {
-        // Exact match
-        return strcmp(pkg->version, version_spec) == 0;
-    }
+    struct stat st;
+    return (stat(spec_path, &st) == 0);
 }
 
-// --- Package Serialization ---
+// --- Asynchronous Package Operations ---
+typedef struct {
+    Package* pkg;
+    char* install_dir;
+    PromiseDeferred* deferred;
+} PackageInstallData;
 
-static void add_string_array_to_json(cJSON* json, const char* key, char** array, size_t count) {
-    if (count == 0) return;
+PromiseValue package_install_operation(PromiseValue prev_result, void* user_data) {
+    PackageInstallData* data = (PackageInstallData*)user_data;
     
-    cJSON* json_array = cJSON_CreateArray();
-    for (size_t i = 0; i < count; i++) {
-        cJSON_AddItemToArray(json_array, cJSON_CreateString(array[i]));
-    }
-    cJSON_AddItemToObject(json, key, json_array);
-}
-
-char* cpm_package_to_json(const Package* pkg) {
-    if (!pkg) return NULL;
+    printf("[CPM] Installing package %s@%s to %s\n", 
+           data->pkg->name, data->pkg->version, data->install_dir);
     
-    cJSON* json = cJSON_CreateObject();
+    // Create package directory
+    char pkg_dir[512];
+    snprintf(pkg_dir, sizeof(pkg_dir), "%s/%s", data->install_dir, data->pkg->name);
     
-    // Add basic fields
-    if (pkg->name) cJSON_AddStringToObject(json, "name", pkg->name);
-    if (pkg->version) cJSON_AddStringToObject(json, "version", pkg->version);
-    if (pkg->description) cJSON_AddStringToObject(json, "description", pkg->description);
-    if (pkg->author) cJSON_AddStringToObject(json, "author", pkg->author);
-    if (pkg->license) cJSON_AddStringToObject(json, "license", pkg->license);
-    if (pkg->homepage) cJSON_AddStringToObject(json, "homepage", pkg->homepage);
-    if (pkg->repository_url) cJSON_AddStringToObject(json, "repository", pkg->repository_url);
-    
-    // Add build commands
-    if (pkg->build_command) cJSON_AddStringToObject(json, "build_command", pkg->build_command);
-    if (pkg->test_command) cJSON_AddStringToObject(json, "test_command", pkg->test_command);
-    if (pkg->install_command) cJSON_AddStringToObject(json, "install_command", pkg->install_command);
-    
-    // Add arrays
-    add_string_array_to_json(json, "dependencies", pkg->dependencies, pkg->dep_count);
-    add_string_array_to_json(json, "dev_dependencies", pkg->dev_dependencies, pkg->dev_dep_count);
-    add_string_array_to_json(json, "scripts", pkg->scripts, pkg->script_count);
-    add_string_array_to_json(json, "include_paths", pkg->include_paths, pkg->include_path_count);
-    add_string_array_to_json(json, "library_paths", pkg->library_paths, pkg->library_path_count);
-    add_string_array_to_json(json, "linked_libraries", pkg->linked_libraries, pkg->linked_library_count);
-    
-    // Add PMEM flags
-    if (pkg->is_persistent) cJSON_AddBoolToObject(json, "is_persistent", true);
-    if (pkg->requires_pmem) cJSON_AddBoolToObject(json, "requires_pmem", true);
-    if (pkg->pmem_pool_size) cJSON_AddStringToObject(json, "pmem_pool_size", pkg->pmem_pool_size);
-    
-    char* json_string = cJSON_Print(json);
-    cJSON_Delete(json);
-    
-    return json_string;
-}
-
-CPM_Result cpm_package_write_to_file(const Package* pkg, const char* filepath) {
-    if (!pkg || !filepath) return CPM_RESULT_ERROR_INVALID_ARGS;
-    
-    char* json_data = cpm_package_to_json(pkg);
-    if (!json_data) return CPM_RESULT_ERROR_PACKAGE_PARSE;
-    
-    FILE* fp = fopen(filepath, "w");
-    if (!fp) {
-        free(json_data);
-        return CPM_RESULT_ERROR_FILE_OPERATION;
+    if (mkdir(pkg_dir, 0755) == -1) {
+        char* error = strdup("Failed to create package directory");
+        promise_defer_reject(data->deferred, error);
+        free(data->install_dir);
+        free(data);
+        return error;
     }
     
-    size_t json_len = strlen(json_data);
-    size_t written = fwrite(json_data, 1, json_len, fp);
-    fclose(fp);
-    free(json_data);
+    // Save package spec
+    char spec_path[512];
+    snprintf(spec_path, sizeof(spec_path), "%s/cpm_package.spec", pkg_dir);
     
-    return (written == json_len) ? CPM_RESULT_SUCCESS : CPM_RESULT_ERROR_FILE_OPERATION;
-}
-
-// --- Package Query Functions ---
-
-const char* cpm_package_find_script(const Package* pkg, const char* script_name) {
-    if (!pkg || !script_name) return NULL;
+    if (cpm_save_package_file(data->pkg, spec_path) != CPM_RESULT_SUCCESS) {
+        char* error = strdup("Failed to save package spec");
+        promise_defer_reject(data->deferred, error);
+        free(data->install_dir);
+        free(data);
+        return error;
+    }
     
-    for (size_t i = 0; i < pkg->script_count; i++) {
-        const char* script = pkg->scripts[i];
-        const char* colon = strchr(script, ':');
-        if (colon) {
-            size_t name_len = colon - script;
-            if (strncmp(script, script_name, name_len) == 0 && script_name[name_len] == '') {
-                // Return the command part (after colon and any spaces)
-                const char* command = colon + 1;
-                while (*command == ' ') command++;
-                return command;
-            }
+    // Execute install command if present
+    if (data->pkg->install_command) {
+        char install_cmd[1024];
+        snprintf(install_cmd, sizeof(install_cmd), "cd %s && %s", pkg_dir, data->pkg->install_command);
+        
+        int result = system(install_cmd);
+        if (result != 0) {
+            char* error = strdup("Package install command failed");
+            promise_defer_reject(data->deferred, error);
+            free(data->install_dir);
+            free(data);
+            return error;
         }
     }
     
-    return NULL;
+    char* success = strdup("Package installed successfully");
+    promise_defer_resolve(data->deferred, success);
+    
+    free(data->install_dir);
+    free(data);
+    return success;
 }
 
-const char** cpm_package_get_dependencies(const Package* pkg, size_t* count) {
-    if (!pkg || !count) return NULL;
+Promise* cpm_package_install_async(const Package* pkg, const char* install_dir) {
+    if (!pkg || !install_dir) {
+        return NULL;
+    }
     
-    *count = pkg->dep_count;
-    return (const char**)pkg->dependencies;
+    PackageInstallData* data = (PackageInstallData*)malloc(sizeof(PackageInstallData));
+    if (!data) {
+        return NULL;
+    }
+    
+    data->pkg = (Package*)pkg; // Cast away const for this operation
+    data->install_dir = strdup(install_dir);
+    data->deferred = promise_defer_create();
+    
+    if (!data->install_dir || !data->deferred) {
+        free(data->install_dir);
+        if (data->deferred) promise_defer_free(data->deferred);
+        free(data);
+        return NULL;
+    }
+    
+    PMLL_HardenedResourceQueue* file_queue = pmll_get_default_file_queue();
+    if (!file_queue) {
+        free(data->install_dir);
+        promise_defer_free(data->deferred);
+        free(data);
+        return NULL;
+    }
+    
+    return pmll_execute_hardened_operation(
+        file_queue,
+        package_install_operation,
+        NULL,
+        data
+    );
 }
 
-const char** cpm_package_get_scripts(const Package* pkg, size_t* count) {
-    if (!pkg || !count) return NULL;
+// --- Package Resolution (Mock Implementation) ---
+Package* cpm_package_resolve_remote(const char* package_spec, const char* registry_url) {
+    printf("[CPM] Resolving package: %s from registry: %s\n", package_spec, registry_url);
     
-    *count = pkg->script_count;
-    return (const char**)pkg->scripts;
+    // Mock implementation - in real system would make HTTP requests
+    Package* pkg = cpm_create_package();
+    if (!pkg) return NULL;
+    
+    // Parse package_spec (name@version format)
+    char* at_pos = strchr(package_spec, '@');
+    if (at_pos) {
+        size_t name_len = at_pos - package_spec;
+        pkg->name = (char*)malloc(name_len + 1);
+        if (pkg->name) {
+            strncpy(pkg->name, package_spec, name_len);
+            pkg->name[name_len] = '\0';
+        }
+        pkg->version = strdup(at_pos + 1);
+    } else {
+        pkg->name = strdup(package_spec);
+        pkg->version = strdup("latest");
+    }
+    
+    // Mock metadata
+    pkg->description = strdup("Mock package from remote registry");
+    pkg->author = strdup("Unknown Author");
+    pkg->license = strdup("MIT");
+    
+    return pkg;
+}
+
+typedef struct {
+    Package* pkg;
+    char* package_dir;
+    PromiseDeferred* deferred;
+} PackageBuildData;
+
+PromiseValue package_build_operation(PromiseValue prev_result, void* user_data) {
+    PackageBuildData* data = (PackageBuildData*)user_data;
+    
+    printf("[CPM] Building package %s in %s\n", data->pkg->name, data->package_dir);
+    
+    if (data->pkg->build_command) {
+        char build_cmd[1024];
+        snprintf(build_cmd, sizeof(build_cmd), "cd %s && %s", data->package_dir, data->pkg->build_command);
+        
+        int result = system(build_cmd);
+        if (result != 0) {
+            char* error = strdup("Package build command failed");
+            promise_defer_reject(data->deferred, error);
+            free(data->package_dir);
+            free(data);
+            return error;
+        }
+    }
+    
+    char* success = strdup("Package built successfully");
+    promise_defer_resolve(data->deferred, success);
+    
+    free(data->package_dir);
+    free(data);
+    return success;
+}
+
+Promise* cpm_package_build_async(const Package* pkg, const char* package_dir) {
+    if (!pkg || !package_dir) {
+        return NULL;
+    }
+    
+    PackageBuildData* data = (PackageBuildData*)malloc(sizeof(PackageBuildData));
+    if (!data) {
+        return NULL;
+    }
+    
+    data->pkg = (Package*)pkg;
+    data->package_dir = strdup(package_dir);
+    data->deferred = promise_defer_create();
+    
+    if (!data->package_dir || !data->deferred) {
+        free(data->package_dir);
+        if (data->deferred) promise_defer_free(data->deferred);
+        free(data);
+        return NULL;
+    }
+    
+    PMLL_HardenedResourceQueue* file_queue = pmll_get_default_file_queue();
+    if (!file_queue) {
+        free(data->package_dir);
+        promise_defer_free(data->deferred);
+        free(data);
+        return NULL;
+    }
+    
+    return pmll_execute_hardened_operation(
+        file_queue,
+        package_build_operation,
+        NULL,
+        data
+    );
 }
