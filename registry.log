@@ -12,3 +12,4 @@ Endpoints:
   POST /packages/upload
 
 Press Ctrl+C to stop the server
+[2025-06-01 08:18:31] "GET /packages/search?q=math HTTP/1.1" 200 -
