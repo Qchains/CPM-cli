@@ -15,7 +15,7 @@
 #include "include/cpm_config.h" // Configuration management
 
 // Global CPM configuration instance
-static CPM_Config global_cpm_config;
+static CPM_Config* global_cpm_config = NULL;
 static bool cpm_is_initialized = false;
 
 // --- Simple Logging Implementation ---
