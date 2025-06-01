@@ -138,7 +138,7 @@ static bool validate_package_for_publish(const char* package_path) {
     }
     
     // Validate spec file content
-    CPM_Package* pkg = package_parse_spec(spec_file);
+    Package* pkg = cpm_parse_package_file(spec_file);
     if (!pkg) {
         printf("[CPM Publish] Error: Invalid package specification\n");
         return false;
@@ -147,18 +147,18 @@ static bool validate_package_for_publish(const char* package_path) {
     // Check required fields
     if (!pkg->name || strlen(pkg->name) == 0) {
         printf("[CPM Publish] Error: Package name is required\n");
-        package_free(pkg);
+        cpm_free_package(pkg);
         return false;
     }
     
     if (!pkg->version || strlen(pkg->version) == 0) {
         printf("[CPM Publish] Error: Package version is required\n");
-        package_free(pkg);
+        cpm_free_package(pkg);
         return false;
     }
     
     printf("[CPM Publish] Package validation successful: %s@%s\n", pkg->name, pkg->version);
-    package_free(pkg);
+    cpm_free_package(pkg);
     return true;
 }
 
