@@ -166,7 +166,7 @@ static bool validate_package_for_publish(const char* package_path) {
 CPM_Result cpm_handle_publish_command(int argc, char* argv[], const CPM_Config* config) {
     if (!config) {
         printf("[CPM Publish] Error: No configuration provided\n");
-        return CPM_RESULT_ERROR_INVALID_CONFIG;
+        return CPM_RESULT_ERROR_INVALID_ARGS;
     }
     
     printf("[CPM Publish] Starting package publish process\n");
