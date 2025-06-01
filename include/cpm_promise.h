@@ -12,10 +12,9 @@
 #include <pthread.h>
 #include <stddef.h>
 
-// --- Core Types ---
+// --- Forward Declarations ---
 typedef struct Promise Promise;
 typedef struct PromiseDeferred PromiseDeferred;
-typedef struct PMLL_HardenedResourceQueue PMLL_HardenedResourceQueue;
 
 // --- Promise States ---
 typedef enum {
