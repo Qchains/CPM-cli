@@ -153,7 +153,7 @@ PromiseValue resolve_next_dependency(PromiseValue prev_result, void* user_data) 
     return strdup("Dependency installation initiated");
 }
 
-Promise* cpm_resolve_dependencies(Package* pkg, const char* modules_dir) {
+Promise* install_resolve_dependencies(Package* pkg, const char* modules_dir) {
     if (!pkg || !modules_dir) {
         return NULL;
     }
