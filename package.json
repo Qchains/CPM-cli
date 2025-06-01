@@ -1,5 +1,5 @@
 {
-  "name": "cpm",
+  "name": "cpm-manager",
   "version": "1.0.0",
   "description": "CPM - C Package Manager: A hardened C implementation of NPM with Q promises and PMLL",
   "main": "index.js",
