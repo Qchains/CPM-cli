@@ -12,6 +12,7 @@
 #include <stdarg.h>     // For va_list, va_start, va_end
 #include <time.h>       // For logging timestamp
 #include "include/cpm.h" // Main CPM public API
+#include "include/cpm_config.h" // Configuration management
 
 // Global CPM configuration instance
 static CPM_Config global_cpm_config;
