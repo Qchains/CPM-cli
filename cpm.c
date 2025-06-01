@@ -65,7 +65,7 @@ void cpm_set_default_config(CPM_Config* config) {
 CPM_Result cpm_initialize(const CPM_Config* user_config) {
     if (cpm_is_initialized) {
         cpm_log(CPM_LOG_WARN, "CPM already initialized.");
-        return CPM_RESULT_ALREADY_INITIALIZED;
+        return CPM_RESULT_ERROR_ALREADY_INITIALIZED;
     }
 
     // Set default config first, then override with user_config if provided
