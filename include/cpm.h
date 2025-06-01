@@ -17,6 +17,7 @@
 #include "cpm_promise.h" // Q Promise library API
 #include "cpm_package.h" // Package structure and parsing functions
 #include "cpm_pmll.h"    // PMLL hardened queue for file operations
+#include "cpm_config.h"  // Configuration management
 
 // --- CPM Global Configuration ---
 typedef struct {
