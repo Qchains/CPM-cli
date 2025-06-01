@@ -19,16 +19,6 @@
 #include "cpm_pmll.h"    // PMLL hardened queue for file operations
 #include "cpm_config.h"  // Configuration management
 
-// --- CPM Global Configuration ---
-typedef struct {
-    const char* working_directory;
-    const char* modules_directory; // e.g., "cpm_modules"
-    const char* registry_url;      // e.g., "https://registry.cpm.example.org"
-    const char* log_file_path;     // Path to log file, if not stderr/stdout
-    FILE* log_stream;              // Defaults to stderr
-    int log_level;                 // e.g., CPM_LOG_INFO
-} CPM_Config;
-
 // --- Core CPM Lifecycle Functions ---
 
 /**
