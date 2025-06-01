@@ -1,0 +1,21 @@
+# Authors and Contributors
+
+## Project Author
+Dr. Q Josef Kurk Edwards <spgaga24@gmail.com>
+
+## Core Contributors
+Dr. Q Josef Kurk Edwards <spgaga24@gmail.com> - Original author, Q Promises implementation, PMLL integration
+
+## Special Thanks
+- The Q Promise library team for inspiration
+- The npm team for the foundational package manager concepts
+- PMDK team for persistent memory concepts
+- The C standards committee for providing a solid foundation
+
+## License
+This project is licensed under The Artistic License 2.0
+See LICENSE file for details.
+
+---
+
+For information about contributing to CPM, see CONTRIBUTING.md

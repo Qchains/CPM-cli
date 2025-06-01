@@ -1,52 +1,66 @@
-# Prerequisites
-*.d
+# Build directories
+build/
+bin/cpm
+bin/cpx
+bin/cpm_node_gyp
 
 # Object files
 *.o
-*.ko
-*.obj
-*.elf
-
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
 *.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
 *.so
-*.so.*
 *.dylib
+*.dll
 
 # Executables
-*.exe
 *.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+*.exe
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Package manager artifacts
+cpm_modules/*/
+!cpm_modules/.gitkeep
+
+# Log files
+*.log
+cpm-debug.log*
+
+# Coverage reports
+coverage/
+*.gcov
+*.gcno
+*.gcda
+
+# Documentation build
+docs/html/
+docs/latex/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# Test artifacts
+test/tmp/
+test/fixtures/tmp/
+
+# Lock files
+cpm_lock.spec
+
+# Generated files
+version.h

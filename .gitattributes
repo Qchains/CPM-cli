@@ -1,0 +1,41 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# C source files
+*.c text
+*.h text
+
+# Documentation
+*.md text
+*.txt text
+
+# Configuration files  
+*.yml text
+*.yaml text
+*.json text
+*.spec text
+
+# Build files
+Makefile text
+CMakeLists.txt text
+*.cmake text
+
+# Binary files
+*.a binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary
+*.out binary
+
+# Archives
+*.tar binary
+*.gz binary
+*.zip binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg text

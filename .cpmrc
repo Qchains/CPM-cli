@@ -1,0 +1,32 @@
+# CPM Global Configuration File
+# This file configures default settings for CPM operations
+
+# Default registry URL
+registry=https://registry.cpm.example.org
+
+# Default modules directory
+modules-dir=cpm_modules
+
+# Default log level (0=none, 1=error, 2=warn, 3=info, 4=debug, 5=trace)
+loglevel=3
+
+# Default installation prefix
+prefix=/usr/local
+
+# Enable PMLL hardening by default
+pmll-enabled=true
+
+# Promise pool size for concurrent operations
+promise-pool-size=16
+
+# Cache settings
+cache-dir=~/.cpm/cache
+cache-max-age=86400
+
+# Network settings
+timeout=30000
+retries=3
+
+# Security settings
+verify-signatures=true
+verify-checksums=true
