@@ -261,7 +261,7 @@ CPM_Result cpm_handle_install_command(int argc, char* argv[], const CPM_Config* 
             Package* pkg = cpm_parse_package_file(pkg_path);
             if (pkg && pkg->dep_count > 0) {
                 printf("[CPM Install] Resolving dependencies for %s...\n", argv[i]);
-                Promise* dep_promise = cpm_resolve_dependencies(pkg, config->modules_directory);
+                Promise* dep_promise = install_resolve_dependencies(pkg, config->modules_directory);
                 if (dep_promise) {
                     // In a real implementation, would properly wait for this
                     printf("[CPM Install] Dependency resolution initiated for %s\n", argv[i]);
