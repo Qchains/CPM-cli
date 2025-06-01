@@ -188,7 +188,7 @@ CPM_Result cpm_handle_publish_command(int argc, char* argv[], const CPM_Config* 
     char spec_file[512];
     snprintf(spec_file, sizeof(spec_file), "%s/cpm_package.spec", package_path);
     
-    CPM_Package* pkg = package_parse_spec(spec_file);
+    Package* pkg = cpm_parse_package_file(spec_file);
     if (!pkg) {
         printf("[CPM Publish] Error: Failed to parse package specification\n");
         curl_global_cleanup();
@@ -201,7 +201,7 @@ CPM_Result cpm_handle_publish_command(int argc, char* argv[], const CPM_Config* 
     
     if (!create_package_archive(package_path, archive_file)) {
         printf("[CPM Publish] Error: Failed to create package archive\n");
-        package_free(pkg);
+        cpm_free_package(pkg);
         curl_global_cleanup();
         return CPM_RESULT_ERROR_COMMAND_FAILED;
     }
@@ -213,7 +213,7 @@ CPM_Result cpm_handle_publish_command(int argc, char* argv[], const CPM_Config* 
     
     // Cleanup
     unlink(archive_file); // Remove temporary archive
-    package_free(pkg);
+    cpm_free_package(pkg);
     curl_global_cleanup();
     
     if (upload_success) {
