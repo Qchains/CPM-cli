@@ -1,6 +1,7 @@
 /*
- * File: include/cpm_pmll.h  
- * Description: PMLL (Persistent Memory Lock Library) hardened queue API
+ * File: include/cpm_pmll.h
+ * Description: PMLL (Persistent Memory Lock Library) API for CPM
+ * Provides hardened queues for serializing operations and preventing race conditions
  * Author: Dr. Q Josef Kurk Edwards
  */
 
@@ -13,127 +14,196 @@
 #include <libpmem.h>
 #include <libpmemobj.h>
 
-// --- PMDK Integration Types ---
+// --- PMDK Integration ---
+typedef PMEMobjpool* PMEMContextHandle;
+typedef pthread_mutex_t PMLL_Lock;
 
-/**
- * @brief PMEM context handle for persistent memory operations
- */
+// --- Persistent Memory Pool Structure ---
 typedef struct {
-    PMEMobjpool* pool;          // PMDK object pool
-    PMEMoid root_oid;           // Root object ID
-    void* mapped_addr;          // Mapped memory address
-    size_t pool_size;           // Pool size in bytes
-    const char* pool_path;      // Path to pool file
-} PMEMContextHandle;
+    char magic[16];           // Magic string for validation
+    uint64_t version;         // Pool version
+    uint64_t queue_count;     // Number of active queues
+    uint64_t operation_count; // Total operations processed
+    char pool_name[256];      // Pool identifier
+    time_t created_at;        // Creation timestamp
+} PMLL_PoolHeader;
 
-/**
- * @brief PMLL lock structure for serializing access to shared resources
- */
-typedef struct {
-    pthread_mutex_t mutex;      // Thread synchronization
-    PMEMoid pmem_oid;          // Persistent memory object ID
-    uint64_t lock_id;          // Unique lock identifier
-    const char* resource_id;   // Resource being protected
-    bool is_persistent;        // Whether lock state is persistent
-} PMLL_Lock;
-
-/**
- * @brief PMLL hardened resource queue for serializing operations
- */
-typedef struct PMLL_HardenedResourceQueue {
-    const char* resource_id;                    // Resource identifier
-    Promise* operation_queue_promise;          // Current tail of operation chain
-    PMLL_Lock queue_lock;                      // Lock for queue modifications
-    PMEMContextHandle* pmem_context;           // Persistent memory context
+// --- Hardened Resource Queue ---
+struct PMLL_HardenedResourceQueue {
+    char* resource_id;
+    Promise* operation_queue_promise;
+    PMLL_Lock queue_lock;
+    PMEMContextHandle pmem_pool;
+    void* pmem_queue_ctx;
     
     // Statistics
-    uint64_t operations_completed;
+    uint64_t operations_processed;
     uint64_t operations_failed;
-    uint64_t operations_pending;
+    time_t last_operation_time;
     
     // Configuration
-    bool persistent_queue;                     // Whether queue state is persistent
-    size_t max_queue_depth;                   // Maximum pending operations
-    uint32_t timeout_ms;                      // Operation timeout
-} PMLL_HardenedResourceQueue;
+    bool persistent_enabled;
+    size_t max_queue_size;
+    int timeout_ms;
+};
 
-// --- PMEM Context Management ---
+// --- Operation Context ---
+typedef struct {
+    on_fulfilled_callback user_op_fn;
+    on_rejected_callback error_fn;
+    void* user_op_data;
+    PromiseDeferred* specific_deferred;
+    PMEMContextHandle pmem_op_ctx;
+    
+    // Operation metadata
+    char operation_id[64];
+    time_t start_time;
+    int priority;
+} HardenedOpWrapperData;
 
-/**
- * @brief Creates a new PMEM context for persistent memory operations
- * @param pool_path Path to persistent memory pool file
- * @param pool_size Size of pool in bytes (0 for existing pool)
- * @param create_if_missing Create pool if it doesn't exist
- * @return PMEM context handle or NULL on failure
- */
-PMEMContextHandle* pmem_context_create(const char* pool_path, 
-                                      size_t pool_size, 
-                                      bool create_if_missing);
-
-/**
- * @brief Opens an existing PMEM context
- * @param pool_path Path to existing pool file
- * @return PMEM context handle or NULL on failure
- */
-PMEMContextHandle* pmem_context_open(const char* pool_path);
+// --- PMLL Initialization ---
 
 /**
- * @brief Closes and frees a PMEM context
- * @param ctx Context to close
+ * @brief Initializes the PMLL subsystem
+ * @param pool_path Path to persistent memory pool
+ * @param pool_size Size of memory pool in bytes
+ * @return CPM_RESULT_SUCCESS on success
  */
-void pmem_context_close(PMEMContextHandle* ctx);
+CPM_Result pmll_init(const char* pool_path, size_t pool_size);
 
 /**
- * @brief Allocates persistent memory from context
- * @param ctx PMEM context
- * @param size Bytes to allocate
- * @return Persistent memory object ID
+ * @brief Cleans up PMLL resources
  */
-PMEMoid pmem_context_alloc(PMEMContextHandle* ctx, size_t size);
+void pmll_cleanup(void);
 
 /**
- * @brief Frees persistent memory object
- * @param ctx PMEM context
- * @param oid Object ID to free
+ * @brief Gets the global persistent memory pool
+ * @return Persistent memory pool handle
  */
-void pmem_context_free(PMEMContextHandle* ctx, PMEMoid oid);
+PMEMContextHandle pmll_get_global_pool(void);
+
+// --- Hardened Queue Management ---
+
+/**
+ * @brief Creates a new hardened resource queue
+ * @param resource_id Unique identifier for the resource
+ * @param persistent_queue Whether to use persistent memory
+ * @return Pointer to hardened queue or NULL on failure
+ */
+PMLL_HardenedResourceQueue* pmll_queue_create(const char* resource_id, bool persistent_queue);
+
+/**
+ * @brief Executes an operation on the hardened queue
+ * @param hq Hardened queue
+ * @param operation_fn Operation function to execute
+ * @param error_fn Error handler function
+ * @param op_user_data User data for operation
+ * @return Promise that resolves with operation result
+ */
+Promise* pmll_execute_hardened_operation(
+    PMLL_HardenedResourceQueue* hq,
+    on_fulfilled_callback operation_fn,
+    on_rejected_callback error_fn,
+    void* op_user_data
+);
+
+/**
+ * @brief Executes an operation with priority
+ * @param hq Hardened queue
+ * @param operation_fn Operation function
+ * @param error_fn Error handler
+ * @param op_user_data User data
+ * @param priority Operation priority (higher = more urgent)
+ * @return Promise that resolves with operation result
+ */
+Promise* pmll_execute_prioritized_operation(
+    PMLL_HardenedResourceQueue* hq,
+    on_fulfilled_callback operation_fn,
+    on_rejected_callback error_fn,
+    void* op_user_data,
+    int priority
+);
+
+/**
+ * @brief Waits for all pending operations to complete
+ * @param hq Hardened queue
+ * @param timeout_ms Timeout in milliseconds
+ * @return CPM_RESULT_SUCCESS if all operations completed
+ */
+CPM_Result pmll_queue_flush(PMLL_HardenedResourceQueue* hq, int timeout_ms);
+
+/**
+ * @brief Gets queue statistics
+ * @param hq Hardened queue
+ * @param ops_processed Output: operations processed
+ * @param ops_failed Output: operations failed
+ * @param queue_size Output: current queue size
+ */
+void pmll_queue_get_stats(PMLL_HardenedResourceQueue* hq, 
+                         uint64_t* ops_processed, 
+                         uint64_t* ops_failed, 
+                         size_t* queue_size);
+
+/**
+ * @brief Frees a hardened queue
+ * @param hq Hardened queue to free
+ */
+void pmll_queue_free(PMLL_HardenedResourceQueue* hq);
+
+// --- Persistent Memory Utilities ---
 
 /**
  * @brief Persists data to persistent memory
- * @param addr Address to persist
- * @param size Number of bytes to persist
+ * @param pmem_ctx Persistent memory context
+ * @param data Data to persist
+ * @param size Size of data in bytes
+ * @return CPM_RESULT_SUCCESS on success
  */
-void pmem_context_persist(void* addr, size_t size);
+CPM_Result pmll_persist_data(PMEMContextHandle pmem_ctx, const void* data, size_t size);
 
-// --- PMLL Lock Management ---
+/**
+ * @brief Reads data from persistent memory
+ * @param pmem_ctx Persistent memory context
+ * @param offset Offset in persistent memory
+ * @param data Output buffer
+ * @param size Size to read
+ * @return CPM_RESULT_SUCCESS on success
+ */
+CPM_Result pmll_read_data(PMEMContextHandle pmem_ctx, size_t offset, void* data, size_t size);
+
+/**
+ * @brief Creates a persistent memory transaction
+ * @param pmem_ctx Persistent memory context
+ * @param transaction_fn Function to execute in transaction
+ * @param user_data User data passed to function
+ * @return CPM_RESULT_SUCCESS on success
+ */
+CPM_Result pmll_execute_transaction(PMEMContextHandle pmem_ctx, 
+                                   CPM_Result (*transaction_fn)(void* user_data),
+                                   void* user_data);
+
+// --- Lock Management ---
 
 /**
  * @brief Initializes a PMLL lock
- * @param lock Lock structure to initialize
- * @param resource_id Resource being protected
- * @param is_persistent Whether lock state should be persistent
- * @param pmem_ctx PMEM context (required if persistent)
+ * @param lock Lock to initialize
  * @return CPM_RESULT_SUCCESS on success
  */
-CPM_Result pmll_lock_init(PMLL_Lock* lock, 
-                         const char* resource_id,
-                         bool is_persistent,
-                         PMEMContextHandle* pmem_ctx);
+CPM_Result pmll_lock_init(PMLL_Lock* lock);
 
 /**
- * @brief Acquires a PMLL lock
+ * @brief Acquires a PMLL lock with timeout
  * @param lock Lock to acquire
- * @param timeout_ms Timeout in milliseconds (0 for blocking)
- * @return CPM_RESULT_SUCCESS on success
+ * @param timeout_ms Timeout in milliseconds
+ * @return CPM_RESULT_SUCCESS if acquired
  */
-CPM_Result pmll_lock_acquire(PMLL_Lock* lock, uint32_t timeout_ms);
+CPM_Result pmll_lock_acquire_timeout(PMLL_Lock* lock, int timeout_ms);
 
 /**
  * @brief Releases a PMLL lock
  * @param lock Lock to release
- * @return CPM_RESULT_SUCCESS on success
  */
-CPM_Result pmll_lock_release(PMLL_Lock* lock);
+void pmll_lock_release(PMLL_Lock* lock);
 
 /**
  * @brief Destroys a PMLL lock
@@ -141,121 +211,27 @@ CPM_Result pmll_lock_release(PMLL_Lock* lock);
  */
 void pmll_lock_destroy(PMLL_Lock* lock);
 
-// --- PMLL Hardened Queue Management ---
+// --- Hardening Utilities ---
 
 /**
- * @brief Creates a new hardened resource queue
- * @param resource_id Unique identifier for the resource
- * @param persistent_queue Whether queue state should be persistent
- * @param pmem_ctx PMEM context (required if persistent)
- * @return Queue handle or NULL on failure
+ * @brief Creates a hardened promise for file operations
+ * @param file_path Path to file
+ * @return Promise for file operation
  */
-PMLL_HardenedResourceQueue* pmll_queue_create(const char* resource_id,
-                                              bool persistent_queue,
-                                              PMEMContextHandle* pmem_ctx);
+Promise* pmll_create_file_operation_promise(const char* file_path);
 
 /**
- * @brief Executes an operation on the hardened queue
- * @param hq Hardened queue
- * @param operation_fn Function to execute
- * @param error_fn Error handler (can be NULL)
- * @param user_data Data passed to operation function
- * @return Promise that resolves with operation result
+ * @brief Creates a hardened promise for network operations
+ * @param url URL for network operation
+ * @return Promise for network operation
  */
-Promise* pmll_execute_hardened_operation(PMLL_HardenedResourceQueue* hq,
-                                        on_fulfilled_callback operation_fn,
-                                        on_rejected_callback error_fn,
-                                        void* user_data);
+Promise* pmll_create_network_operation_promise(const char* url);
 
 /**
- * @brief Gets queue statistics
- * @param hq Hardened queue
- * @param completed Output for completed operations count
- * @param failed Output for failed operations count  
- * @param pending Output for pending operations count
+ * @brief Validates persistent memory integrity
+ * @param pmem_ctx Persistent memory context
+ * @return true if integrity check passes
  */
-void pmll_queue_get_stats(PMLL_HardenedResourceQueue* hq,
-                         uint64_t* completed,
-                         uint64_t* failed,
-                         uint64_t* pending);
-
-/**
- * @brief Waits for all pending operations to complete
- * @param hq Hardened queue
- * @param timeout_ms Timeout in milliseconds (0 for infinite)
- * @return CPM_RESULT_SUCCESS if all operations completed
- */
-CPM_Result pmll_queue_wait_complete(PMLL_HardenedResourceQueue* hq, uint32_t timeout_ms);
-
-/**
- * @brief Shuts down and frees a hardened queue
- * @param hq Queue to free
- */
-void pmll_queue_free(PMLL_HardenedResourceQueue* hq);
-
-// --- PMLL Transaction Support ---
-
-/**
- * @brief Transaction handle for atomic operations
- */
-typedef struct {
-    PMEMContextHandle* pmem_ctx;
-    PMEMoid tx_oid;
-    bool is_active;
-    uint64_t tx_id;
-} PMLL_Transaction;
-
-/**
- * @brief Begins a new PMLL transaction
- * @param pmem_ctx PMEM context
- * @return Transaction handle or NULL on failure
- */
-PMLL_Transaction* pmll_transaction_begin(PMEMContextHandle* pmem_ctx);
-
-/**
- * @brief Commits a PMLL transaction
- * @param tx Transaction to commit
- * @return CPM_RESULT_SUCCESS on success
- */
-CPM_Result pmll_transaction_commit(PMLL_Transaction* tx);
-
-/**
- * @brief Aborts a PMLL transaction
- * @param tx Transaction to abort
- */
-void pmll_transaction_abort(PMLL_Transaction* tx);
-
-/**
- * @brief Frees a transaction handle
- * @param tx Transaction to free
- */
-void pmll_transaction_free(PMLL_Transaction* tx);
-
-// --- PMLL Utilities ---
-
-/**
- * @brief Initializes PMLL subsystem
- * @return CPM_RESULT_SUCCESS on success
- */
-CPM_Result pmll_init(void);
-
-/**
- * @brief Shuts down PMLL subsystem
- */
-void pmll_shutdown(void);
-
-/**
- * @brief Checks if PMDK is available on system
- * @return true if PMDK is available and functional
- */
-bool pmll_is_pmdk_available(void);
-
-/**
- * @brief Gets PMLL version information
- * @param major Output for major version
- * @param minor Output for minor version  
- * @param patch Output for patch version
- */
-void pmll_get_version(int* major, int* minor, int* patch);
+bool pmll_validate_integrity(PMEMContextHandle pmem_ctx);
 
 #endif // CPM_PMLL_H

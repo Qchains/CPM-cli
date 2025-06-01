@@ -1,21 +1,16 @@
 /*
  * File: include/cpm_types.h
- * Description: Common type definitions and constants for CPM
+ * Description: Core type definitions for CPM (C Package Manager)
  * Author: Dr. Q Josef Kurk Edwards
  */
 
 #ifndef CPM_TYPES_H
 #define CPM_TYPES_H
 
+#include <stdio.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <stdio.h>
-
-// --- Forward Declarations ---
-typedef struct Promise Promise;
-typedef struct PromiseDeferred PromiseDeferred;
-typedef struct PMLL_HardenedResourceQueue PMLL_HardenedResourceQueue;
-typedef struct Package Package;
+#include <stdint.h>
 
 // --- Result Types ---
 typedef enum {
@@ -35,8 +30,11 @@ typedef enum {
     CPM_RESULT_ERROR_DEPENDENCY_RESOLUTION = 13,
     CPM_RESULT_ERROR_SCRIPT_EXECUTION = 14,
     CPM_RESULT_ERROR_PMLL_INIT = 15,
-    CPM_RESULT_ERROR_PROMISE_CREATION = 16,
-    CPM_RESULT_ERROR_PMDK_OPERATION = 17
+    CPM_RESULT_ERROR_PMDK_INIT = 16,
+    CPM_RESULT_ERROR_PERSISTENT_MEMORY = 17,
+    CPM_RESULT_ERROR_PROMISE_CHAIN = 18,
+    CPM_RESULT_ERROR_LOCK_TIMEOUT = 19,
+    CPM_RESULT_ERROR_REGISTRY_UNAVAILABLE = 20
 } CPM_Result;
 
 // --- Logging Levels ---
@@ -47,20 +45,6 @@ typedef enum {
 #define CPM_LOG_DEBUG 4
 #define CPM_LOG_TRACE 5
 
-// --- Promise Value Type ---
-typedef void* PromiseValue;
-
-// --- Promise States ---
-typedef enum {
-    PROMISE_PENDING,
-    PROMISE_FULFILLED,
-    PROMISE_REJECTED
-} PromiseState;
-
-// --- Promise Callback Types ---
-typedef PromiseValue (*on_fulfilled_callback)(PromiseValue value, void* user_data);
-typedef PromiseValue (*on_rejected_callback)(PromiseValue reason, void* user_data);
-
 // --- Package Structure ---
 typedef struct Package {
     char* name;
@@ -68,6 +52,8 @@ typedef struct Package {
     char* description;
     char* author;
     char* license;
+    char* homepage;
+    char* repository;
     
     // Dependencies
     char** dependencies;
@@ -77,23 +63,24 @@ typedef struct Package {
     char** scripts;
     size_t script_count;
     
-    // Build configuration
+    // Build information
     char* build_script;
     char* install_script;
-    char* test_script;
+    
+    // File lists
+    char** source_files;
+    size_t source_count;
+    char** header_files;
+    size_t header_count;
     
     // Metadata
-    char* homepage;
-    char* repository;
-    char* bugs_url;
-    
-    // CPM specific
-    char* include_path;
-    char* lib_path;
-    char* bin_path;
+    time_t created_at;
+    time_t updated_at;
+    uint64_t size;
+    char* checksum;
 } Package;
 
-// --- CPM Global Configuration ---
+// --- CPM Configuration ---
 typedef struct {
     const char* working_directory;
     const char* modules_directory;
@@ -102,38 +89,50 @@ typedef struct {
     FILE* log_stream;
     int log_level;
     
-    // PMLL configuration
+    // PMLL/PMDK settings
     bool pmll_enabled;
-    size_t pmll_pool_size;
+    const char* pmem_pool_path;
+    size_t pmem_pool_size;
     
-    // Promise configuration
-    size_t promise_pool_size;
-    
-    // Network configuration
+    // Network settings
     int timeout_ms;
     int max_retries;
     
-    // Security configuration
+    // Security settings
     bool verify_signatures;
     bool verify_checksums;
     
-    // Cache configuration
-    const char* cache_dir;
-    size_t cache_max_age;
+    // Performance settings
+    size_t promise_pool_size;
+    size_t max_concurrent_downloads;
 } CPM_Config;
 
-// --- Version Information ---
-#define CPM_VERSION_MAJOR 0
-#define CPM_VERSION_MINOR 1
-#define CPM_VERSION_PATCH 0
-#define CPM_VERSION_SUFFIX "alpha"
-#define CPM_VERSION_STRING "0.1.0-alpha"
+// --- Forward Declarations ---
+typedef struct Promise Promise;
+typedef struct PromiseDeferred PromiseDeferred;
+typedef struct PMLL_HardenedResourceQueue PMLL_HardenedResourceQueue;
 
-// --- Constants ---
-#define CPM_MAX_PATH 4096
-#define CPM_MAX_NAME 256
-#define CPM_MAX_VERSION 64
-#define CPM_MAX_DEPS 1024
-#define CPM_MAX_SCRIPTS 64
+// --- Promise Value Type ---
+typedef void* PromiseValue;
+
+// --- Callback Types ---
+typedef PromiseValue (*on_fulfilled_callback)(PromiseValue value, void* user_data);
+typedef PromiseValue (*on_rejected_callback)(PromiseValue reason, void* user_data);
+typedef void (*NodeCallback)(void* err, PromiseValue result, void* user_data);
+
+// --- Utility Macros ---
+#define CPM_UNUSED(x) ((void)(x))
+#define CPM_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+// --- String Utilities ---
+char* cpm_strdup(const char* str);
+void cpm_free_string_array(char** array, size_t count);
+char** cpm_split_string(const char* str, const char* delimiter, size_t* count);
+
+// --- Memory Management ---
+void* cpm_malloc(size_t size);
+void* cpm_calloc(size_t nmemb, size_t size);
+void* cpm_realloc(void* ptr, size_t size);
+void cpm_free(void* ptr);
 
 #endif // CPM_TYPES_H

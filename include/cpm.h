@@ -14,16 +14,14 @@
 #include "cpm_promise.h"
 #include "cpm_package.h"
 #include "cpm_pmll.h"
-#include <stdio.h>
 
 // --- Core CPM Lifecycle Functions ---
 
 /**
- * @brief Initializes the CPM environment.
+ * @brief Initializes the CPM environment
  *
- * This function should be called once at the beginning of the program.
- * It sets up global configurations, initializes subsystems like logging,
- * the PMLL file operations queue, and parses any global CPM configuration files (e.g., .cpmrc).
+ * Sets up global configurations, logging, PMLL queues, etc.
+ * Must be called before any other CPM operations.
  *
  * @param config A pointer to a CPM_Config struct with initial settings.
  * If NULL, default settings will be used.
@@ -32,44 +30,38 @@
 CPM_Result cpm_initialize(const CPM_Config* config);
 
 /**
- * @brief Executes a CPM command.
+ * @brief Executes a CPM command
  *
- * This is the main dispatcher for all CPM commands (install, publish, etc.).
- * It takes the command name and its arguments, then routes to the appropriate
- * command handler.
+ * Main dispatcher for commands like "install", "publish", "run", etc.
  *
- * @param command The name of the command to execute (e.g., "install", "publish").
- * @param argc The number of arguments for the command (similar to main's argc).
- * @param argv An array of argument strings for the command (similar to main's argv).
- * argv[0] is typically the command name itself if parsed from a full CLI string.
+ * @param command The name of the command to execute.
+ * @param argc The number of arguments for the command.
+ * @param argv An array of argument strings for the command.
  * @return CPM_RESULT_SUCCESS on successful command execution, or an error code.
  */
 CPM_Result cpm_execute_command(const char* command, int argc, char* argv[]);
 
 /**
- * @brief Cleans up CPM resources.
+ * @brief Cleans up CPM resources
  *
- * This function should be called once before the program exits.
- * It frees any globally allocated memory, closes log files,
- * ensures any pending PMLL operations are completed or handled gracefully,
- * and performs other necessary cleanup tasks.
+ * Frees global resources, ensures pending operations are handled.
+ * Should be called before program exit.
  */
 void cpm_terminate(void);
 
 /**
- * @brief Gets CPM version information
+ * @brief Gets current CPM configuration
+ * @return Pointer to current configuration
+ */
+const CPM_Config* cpm_get_config(void);
+
+/**
+ * @brief Gets CPM version string
  * @return Version string
  */
 const char* cpm_get_version(void);
 
-/**
- * @brief Gets CPM configuration
- * @return Current configuration (read-only)
- */
-const CPM_Config* cpm_get_config(void);
-
 // --- Command Handler Function Prototypes ---
-// These are implemented in lib/commands/*.c
 
 CPM_Result cpm_handle_install_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_publish_command(int argc, char* argv[], const CPM_Config* config);
@@ -77,25 +69,16 @@ CPM_Result cpm_handle_search_command(int argc, char* argv[], const CPM_Config* c
 CPM_Result cpm_handle_run_script_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_init_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_help_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_audit_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_cache_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_config_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_doctor_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_ls_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_outdated_command(int argc, char* argv[], const CPM_Config* config);
-CPM_Result cpm_handle_uninstall_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_update_command(int argc, char* argv[], const CPM_Config* config);
+CPM_Result cpm_handle_uninstall_command(int argc, char* argv[], const CPM_Config* config);
+CPM_Result cpm_handle_list_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_version_command(int argc, char* argv[], const CPM_Config* config);
+CPM_Result cpm_handle_config_command(int argc, char* argv[], const CPM_Config* config);
+CPM_Result cpm_handle_login_command(int argc, char* argv[], const CPM_Config* config);
+CPM_Result cpm_handle_logout_command(int argc, char* argv[], const CPM_Config* config);
 CPM_Result cpm_handle_whoami_command(int argc, char* argv[], const CPM_Config* config);
-
-// --- Logging Functions ---
-void cpm_log_message(int level, const char* format, ...);
-void cpm_log_set_level(int level);
-int cpm_log_get_level(void);
-
-// --- Configuration Functions ---
-CPM_Result cpm_config_load_file(const char* filepath, CPM_Config* config);
-CPM_Result cpm_config_save_file(const char* filepath, const CPM_Config* config);
-CPM_Result cpm_config_load_global(CPM_Config* config);
+CPM_Result cpm_handle_audit_command(int argc, char* argv[], const CPM_Config* config);
+CPM_Result cpm_handle_doctor_command(int argc, char* argv[], const CPM_Config* config);
 
 #endif // CPM_H
