@@ -1,0 +1,44 @@
+name: 'Install Latest CPM'
+description: 'Install the latest version of CPM from source'
+inputs:
+  version:
+    description: 'CPM version to install'
+    required: false
+    default: 'latest'
+  prefix:
+    description: 'Installation prefix'
+    required: false
+    default: '/usr/local'
+outputs:
+  version:
+    description: 'Installed CPM version'
+  path:
+    description: 'CPM binary path'
+runs:
+  using: 'composite'
+  steps:
+    - name: Download CPM source
+      shell: bash
+      run: |
+        if [ "${{ inputs.version }}" = "latest" ]; then
+          git clone https://github.com/Qchains/CPM-cli.git cpm-source
+        else
+          git clone -b ${{ inputs.version }} https://github.com/Qchains/CPM-cli.git cpm-source
+        fi
+    
+    - name: Build and install CPM
+      shell: bash
+      working-directory: cpm-source
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_INSTALL_PREFIX=${{ inputs.prefix }} ..
+        make -j$(nproc)
+        sudo make install
+    
+    - name: Verify installation
+      shell: bash
+      run: |
+        cpm --version
+        echo "version=$(cpm --version | cut -d' ' -f3)" >> $GITHUB_OUTPUT
+        echo "path=$(which cpm)" >> $GITHUB_OUTPUT

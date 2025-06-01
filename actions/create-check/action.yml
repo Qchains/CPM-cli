@@ -1,0 +1,19 @@
+name: 'Create Check'
+description: 'Create a check run for CPM builds'
+inputs:
+  token:
+    description: 'GitHub token'
+    required: true
+  name:
+    description: 'Check name'
+    required: true
+  status:
+    description: 'Check status'
+    required: true
+    default: 'in_progress'
+outputs:
+  check_id:
+    description: 'Check run ID'
+runs:
+  using: 'node20'
+  main: 'index.js'

@@ -1,0 +1,22 @@
+{
+  "problemMatchers": [
+    {
+      "owner": "tap",
+      "pattern": [
+        {
+          "regexp": "^not ok \\d+ (.*)$",
+          "message": 1
+        },
+        {
+          "regexp": "^\\s+---$"
+        },
+        {
+          "regexp": "^\\s+at:\\s+(.*):(\\d+):(\\d+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3
+        }
+      ]
+    }
+  ]
+}

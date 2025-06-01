@@ -1,0 +1,23 @@
+# Global ownership
+* @Qchains
+
+# Core library ownership
+/lib/core/ @Qchains
+/include/ @Qchains
+
+# Promise system
+/lib/core/cpm_promise.c @Qchains
+/include/cpm_promise.h @Qchains
+
+# PMLL system
+/lib/core/cpm_pmll.c @Qchains  
+/include/cpm_pmll.h @Qchains
+
+# Documentation
+/docs/ @Qchains
+README.md @Qchains
+
+# Build system
+Makefile @Qchains
+CMakeLists.txt @Qchains
+/.github/ @Qchains
