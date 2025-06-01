@@ -38,56 +38,38 @@ void cpm_log_message_impl(int level, const char* file, int line, const char* for
 // Macro to simplify logging calls
 #define cpm_log(level, ...) cpm_log_message_impl(level, __FILE__, __LINE__, __VA_ARGS__)
 
-// --- Helper function to set default configuration ---
-void cpm_set_default_config(CPM_Config* config) {
-    if (!config) return;
-    config->working_directory = "."; // Current directory
-    config->modules_directory = "cpm_modules";
-    config->registry_url = "https://registry.cpm.example.org"; // Placeholder
-    config->log_file_path = NULL; // No file logging by default
-    config->log_stream = stderr;  // Default to stderr
-    config->log_level = CPM_LOG_INFO; // Default to Info
-}
-
 // --- Core CPM Lifecycle Function Implementations ---
 
 CPM_Result cpm_initialize(const CPM_Config* user_config) {
     if (cpm_is_initialized) {
-        cpm_log(CPM_LOG_WARN, "CPM already initialized.");
+        fprintf(stderr, "CPM already initialized.\n");
         return CPM_RESULT_ERROR_ALREADY_INITIALIZED;
     }
 
-    // Set default config first, then override with user_config if provided
-    cpm_set_default_config(&global_cpm_config);
+    // Load configuration
     if (user_config) {
-        if (user_config->working_directory) global_cpm_config.working_directory = user_config->working_directory;
-        if (user_config->modules_directory) global_cpm_config.modules_directory = user_config->modules_directory;
-        if (user_config->registry_url) global_cpm_config.registry_url = user_config->registry_url;
-        if (user_config->log_file_path) global_cpm_config.log_file_path = user_config->log_file_path;
-        global_cpm_config.log_level = user_config->log_level;
-        if (user_config->log_stream) global_cpm_config.log_stream = user_config->log_stream;
-    }
-    
-    // If a log file path is provided, try to open it
-    if (global_cpm_config.log_file_path) {
-        FILE* lf = fopen(global_cpm_config.log_file_path, "a"); // Append mode
-        if (lf) {
-            global_cpm_config.log_stream = lf;
-        } else {
-            cpm_log(CPM_LOG_ERROR, "Failed to open log file: %s. Defaulting to stderr.", global_cpm_config.log_file_path);
-            global_cpm_config.log_stream = stderr;
+        // Make a copy of the provided config
+        global_cpm_config = cpm_config_load();
+        if (!global_cpm_config) {
+            fprintf(stderr, "Failed to load configuration\n");
+            return CPM_RESULT_ERROR_INITIALIZATION_FAILED;
+        }
+        // Override with user settings would go here
+    } else {
+        global_cpm_config = cpm_config_load();
+        if (!global_cpm_config) {
+            fprintf(stderr, "Failed to load configuration\n");
+            return CPM_RESULT_ERROR_INITIALIZATION_FAILED;
         }
     }
 
-    cpm_log(CPM_LOG_INFO, "CPM Initializing (v0.1.0-alpha)...");
-    cpm_log(CPM_LOG_DEBUG, "Working Directory: %s", global_cpm_config.working_directory);
-    cpm_log(CPM_LOG_DEBUG, "Modules Directory: %s", global_cpm_config.modules_directory);
-    cpm_log(CPM_LOG_DEBUG, "Registry URL: %s", global_cpm_config.registry_url);
-    cpm_log(CPM_LOG_DEBUG, "Log Level: %d", global_cpm_config.log_level);
+    printf("[PMLL] Initializing CPM package manager...\n");
 
     // Initialize PMLL system
     if (!pmll_init_global_system()) {
-        cpm_log(CPM_LOG_ERROR, "Failed to initialize PMLL system.");
+        fprintf(stderr, "Failed to initialize PMLL system.\n");
+        cpm_config_free(global_cpm_config);
+        global_cpm_config = NULL;
         return CPM_RESULT_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -95,7 +77,6 @@ CPM_Result cpm_initialize(const CPM_Config* user_config) {
     init_event_loop();
 
     cpm_is_initialized = true;
-    cpm_log(CPM_LOG_INFO, "CPM Initialization complete.");
     return CPM_RESULT_SUCCESS;
 }
 
