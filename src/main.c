@@ -89,12 +89,11 @@ int main(int argc, char* argv[]) {
     int result = CPM_SUCCESS;
 
     if (strcmp(command, "install") == 0 || strcmp(command, "i") == 0) {
-        if (argc < 3) {
+        if (package_spec == NULL) {
             // Install from package.json
             result = cpm_install(&ctx, NULL, NULL);
         } else {
             // Install specific package
-            const char* package_spec = argv[argc - 1]; // Last argument is package
             
             // Parse package@version format
             char package_name[MAX_PACKAGE_NAME];
