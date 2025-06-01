@@ -63,8 +63,6 @@ CPM_Result cpm_initialize(const CPM_Config* user_config) {
         }
     }
 
-    printf("[PMLL] Initializing CPM package manager...\n");
-
     // Initialize PMLL system
     if (!pmll_init_global_system()) {
         fprintf(stderr, "Failed to initialize PMLL system.\n");
@@ -86,31 +84,26 @@ CPM_Result cpm_execute_command(const char* command, int argc, char* argv[]) {
         return CPM_RESULT_ERROR_NOT_INITIALIZED;
     }
     if (!command || command[0] == '\0') {
-        cpm_log(CPM_LOG_ERROR, "No command provided.");
-        cpm_handle_help_command(0, NULL, &global_cpm_config);
+        fprintf(stderr, "No command provided.\n");
+        cpm_handle_help_command(0, NULL, global_cpm_config);
         return CPM_RESULT_ERROR_INVALID_ARGS;
     }
 
-    cpm_log(CPM_LOG_INFO, "Executing command: \"%s\"", command);
-    for(int i=0; i < argc; ++i) {
-        cpm_log(CPM_LOG_DEBUG, "  arg[%d]: \"%s\"", i, argv[i]);
-    }
-
     if (strcmp(command, "install") == 0) {
-        return cpm_handle_install_command(argc, argv, &global_cpm_config);
+        return cpm_handle_install_command(argc, argv, global_cpm_config);
     } else if (strcmp(command, "publish") == 0) {
-        return cpm_handle_publish_command(argc, argv, &global_cpm_config);
+        return cpm_handle_publish_command(argc, argv, global_cpm_config);
     } else if (strcmp(command, "search") == 0) {
-        return cpm_handle_search_command(argc, argv, &global_cpm_config);
+        return cpm_handle_search_command(argc, argv, global_cpm_config);
     } else if (strcmp(command, "run") == 0 || strcmp(command, "run-script") == 0) {
-        return cpm_handle_run_script_command(argc, argv, &global_cpm_config);
+        return cpm_handle_run_script_command(argc, argv, global_cpm_config);
     } else if (strcmp(command, "init") == 0) {
-        return cpm_handle_init_command(argc, argv, &global_cpm_config);
+        return cpm_handle_init_command(argc, argv, global_cpm_config);
     } else if (strcmp(command, "help") == 0 || strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
-        return cpm_handle_help_command(argc, argv, &global_cpm_config);
+        return cpm_handle_help_command(argc, argv, global_cpm_config);
     } else {
-        cpm_log(CPM_LOG_ERROR, "Unknown command: %s", command);
-        cpm_handle_help_command(0, NULL, &global_cpm_config);
+        fprintf(stderr, "Unknown command: %s\n", command);
+        cpm_handle_help_command(0, NULL, global_cpm_config);
         return CPM_RESULT_ERROR_UNKNOWN_COMMAND;
     }
 }
@@ -119,7 +112,6 @@ void cpm_terminate(void) {
     if (!cpm_is_initialized) {
         return;
     }
-    cpm_log(CPM_LOG_INFO, "CPM Terminating...");
 
     // Terminate PMLL system
     pmll_shutdown_global_system();
@@ -127,62 +119,40 @@ void cpm_terminate(void) {
     // Free promise subsystem's event loop resources
     free_event_loop();
 
-    cpm_log(CPM_LOG_INFO, "CPM Termination complete.");
-    
-    // Close log file if it was opened and not stderr/stdout
-    if (global_cpm_config.log_file_path && global_cpm_config.log_stream != stderr && global_cpm_config.log_stream != stdout) {
-        fclose(global_cpm_config.log_stream);
-        global_cpm_config.log_stream = stderr;
+    // Free configuration
+    if (global_cpm_config) {
+        cpm_config_free(global_cpm_config);
+        global_cpm_config = NULL;
     }
+    
     cpm_is_initialized = false;
 }
 
 // --- Main Function ---
 int main(int argc, char* argv[]) {
     CPM_Result result;
-    CPM_Config current_run_config;
-    cpm_set_default_config(&current_run_config);
-
-    // Basic CLI Argument Parsing for Global Options
-    int command_arg_offset = 1;
-    for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "--verbose") == 0 || strcmp(argv[i], "-v") == 0) {
-            current_run_config.log_level = CPM_LOG_DEBUG;
-            command_arg_offset = i + 1;
-        } else if (strcmp(argv[i], "--trace") == 0) {
-            current_run_config.log_level = CPM_LOG_TRACE;
-            command_arg_offset = i + 1;
-        } else if (strcmp(argv[i], "--log-file") == 0) {
-            if (i + 1 < argc) {
-                current_run_config.log_file_path = argv[i+1];
-                command_arg_offset = i + 2;
-                i++; // consume value
-            } else {
-                fprintf(stderr, "Error: --log-file requires an argument.\n");
-                return EXIT_FAILURE;
-            }
-        } else {
-            command_arg_offset = i;
-            break;
-        }
-    }
     
-    result = cpm_initialize(&current_run_config);
+    // Initialize with NULL config to use defaults
+    result = cpm_initialize(NULL);
     if (result != CPM_RESULT_SUCCESS) {
-        fprintf(global_cpm_config.log_stream ? global_cpm_config.log_stream : stderr,
-                "Critical error: CPM failed to initialize (code: %d).\n", result);
+        fprintf(stderr, "Critical error: CPM failed to initialize (code: %d).\n", result);
         return EXIT_FAILURE;
     }
 
-    if (argc <= command_arg_offset) {
-        cpm_handle_help_command(0, NULL, &global_cpm_config);
+    // Apply command line arguments to config
+    if (global_cpm_config) {
+        cpm_config_apply_command_line_args(global_cpm_config, argc, argv);
+    }
+
+    if (argc <= 1) {
+        cpm_handle_help_command(0, NULL, global_cpm_config);
         cpm_terminate();
         return EXIT_SUCCESS;
     }
 
-    const char* command = argv[command_arg_offset];
-    int cmd_argc = argc - (command_arg_offset + 1);
-    char** cmd_argv = argv + (command_arg_offset + 1);
+    const char* command = argv[1];
+    int cmd_argc = argc - 2;
+    char** cmd_argv = argv + 2;
 
     result = cpm_execute_command(command, cmd_argc, cmd_argv);
 
