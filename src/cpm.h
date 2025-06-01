@@ -108,9 +108,13 @@ void q_promise_free(QPromise* promise);
 PMLL* pmll_new(void);
 int pmll_add_package(PMLL* list, const Package* package);
 Package* pmll_find_package(PMLL* list, const char* name);
+Package* pmll_find_package_unsafe(PMLL* list, const char* name);
 int pmll_remove_package(PMLL* list, const char* name);
 void pmll_free(PMLL* list);
 void pmll_print(PMLL* list);
+int pmll_get_dependency_tree(PMLL* list, const char* package_name, char** tree_json);
+int pmll_check_conflicts(PMLL* list);
+int pmll_sort(PMLL* list);
 
 // Utility functions
 int load_package_json(CPMContext* ctx);
