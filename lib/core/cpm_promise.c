@@ -472,3 +472,9 @@ PromiseValue promise_get_value(const Promise* p) {
     if (!p) return NULL;
     return p->value;
 }
+
+// --- Deferred Promise Access ---
+Promise* promise_defer_get_promise(PromiseDeferred* deferred) {
+    if (!deferred) return NULL;
+    return deferred->promise;
+}
