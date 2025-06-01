@@ -244,7 +244,7 @@ CPM_Result cpm_handle_install_command(int argc, char* argv[], const CPM_Config* 
         return CPM_RESULT_ERROR_COMMAND_FAILED;
     }
     
-    if (all_promise->state == PROMISE_FULFILLED) {
+    if (promise_get_state(all_promise) == PROMISE_FULFILLED) {
         printf("[CPM Install] All packages installed successfully!\n");
         
         // Try to resolve dependencies for installed packages
