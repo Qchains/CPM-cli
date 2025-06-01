@@ -1,0 +1,14 @@
+/app/registry_server.py:15: DeprecationWarning: 'cgi' is deprecated and slated for removal in Python 3.13
+  import cgi
+CPM Registry Server starting...
+Listening on http://0.0.0.0:8080
+Package database: cpm_registry.db
+Packages directory: packages
+
+Endpoints:
+  GET  /packages/search?q=<query>
+  GET  /packages/<name>/versions
+  GET  /packages/<name>/<version>
+  POST /packages/upload
+
+Press Ctrl+C to stop the server
