@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "cpm.h"
 #include "cpm_package.h"
 #include "cpm_promise.h"
