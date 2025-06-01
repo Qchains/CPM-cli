@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project( «ŽZµþ VERSION 0ÌËÃÿÿ LANGUAGES C)
+project( [Õf±û VERSION °@òèÿÿ LANGUAGES C)
 
 # Set C standard
 set(CMAKE_C_STANDARD 11)
@@ -18,16 +18,16 @@ file(GLOB_RECURSE SOURCES "src/*.c")
 file(GLOB_RECURSE HEADERS "include/*.h")
 
 # Create library
-add_library( «ŽZµþ ${SOURCES} ${HEADERS})
+add_library( [Õf±û ${SOURCES} ${HEADERS})
 
 # Create example executable (optional)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/examples/main.c")
-    add_executable( «ŽZµþ_example examples/main.c)
-    target_link_libraries( «ŽZµþ_example  «ŽZµþ)
+    add_executable( [Õf±û_example examples/main.c)
+    target_link_libraries( [Õf±û_example  [Õf±û)
 endif()
 
 # Install targets
-install(TARGETS  «ŽZµþ
+install(TARGETS  [Õf±û
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib)
 install(DIRECTORY include/ DESTINATION include)

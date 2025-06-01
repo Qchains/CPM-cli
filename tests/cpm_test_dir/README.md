@@ -1,20 +1,20 @@
-#  «Zµş
+#  [Õf±û
 
-#Zµş
+#¯f±û
 
 ## Installation
 
 ```bash
-cpm install  «Zµş
+cpm install  [Õf±û
 ```
 
 ## Usage
 
 ```c
-#include " «Zµş.h"
+#include " [Õf±û.h"
 
 int main(void) {
-     «Zµş_hello();
+     [Õf±û_hello();
     return 0;
 }
 ```
@@ -27,4 +27,4 @@ make
 
 ## License
 
-ĞÌËÃÿÿ
+PAòèÿÿ
