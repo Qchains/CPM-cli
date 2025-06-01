@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#define _GNU_SOURCE
 #include "cpm_package.h"
 #include "cpm_promise.h"
 #include "cpm_pmll.h"
