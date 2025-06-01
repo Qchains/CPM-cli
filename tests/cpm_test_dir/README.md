@@ -1,20 +1,20 @@
-#  K¥Ü_ø
+#  «Zµş
 
-#Ü_ø
+#Zµş
 
 ## Installation
 
 ```bash
-cpm install  K¥Ü_ø
+cpm install  «Zµş
 ```
 
 ## Usage
 
 ```c
-#include " K¥Ü_ø.h"
+#include " «Zµş.h"
 
 int main(void) {
-     K¥Ü_ø_hello();
+     «Zµş_hello();
     return 0;
 }
 ```
@@ -27,4 +27,4 @@ make
 
 ## License
 
-°fpéÿÿ
+ĞÌËÃÿÿ
