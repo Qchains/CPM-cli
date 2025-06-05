@@ -1,0 +1,72 @@
+name: C++ CI/CD
+
+on:
+  push:
+    branches: [ main ] # Or your default branch, e.g., master
+  pull_request:
+    branches: [ main ] # Or your default branch
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest # You can also use other runners like macos-latest or windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up C++ compiler (GCC)
+      uses: egor-tensin/setup-gcc@v1 # Example action to set up GCC
+      with:
+        version: '11' # Specify GCC version, adjust as needed
+
+    # If you need other dependencies (like libuuid, a JSON library, etc.), install them here.
+    # For example, for libuuid-dev on Ubuntu:
+    - name: Install dependencies
+      run: |
+        set -e # Exit immediately if a command exits with a non-zero status
+        sudo apt-get update && \
+        sudo apt-get install -y libuuid1 uuid-dev libcurl4-openssl-dev
+        # sudo apt-get install -y libcjson-dev # Example for cJSON
+        # Add other dependencies here
+
+    - name: Configure (if using CMake)
+      if: steps.cmake_check.outputs.exists == 'true' # Conditional step
+      run: cmake . -B build # Adjust CMake commands as needed
+
+    - name: Build project
+      run: |
+        # If using Make directly
+        make
+        # If using CMake:
+        # cd build && make
+
+    - name: Run tests (Optional)
+      # This step assumes you have a target like 'make test' or a test executable
+      # Adjust the command as per your project's testing setup.
+      run: |
+        echo "Running tests..."
+        # make test # Example if you have a 'test' target in your Makefile
+        # ./build/your_test_executable # Example if CMake builds a test executable
+        # For now, just a placeholder:
+        if [ -f "./cpm" ]; then
+          ./cpm version # Example: run a basic command of your tool
+        else
+          echo "CPM executable not found, skipping test run."
+        fi
+
+    # Example step to upload build artifact (optional)
+    - name: Upload CPM executable
+      if: success() # Only run if previous steps succeeded
+      uses: actions/upload-artifact@v4
+      with:
+        name: cpm-executable-ubuntu
+        path: ./cpm # Path to your compiled executable
+        if-no-files-found: error # Fails the step if the file isn't found
+
+    # Optional: Check for CMakeLists.txt to conditionally run CMake steps
+    # This step is just to set an output, not strictly necessary if you always use CMake or always use Make.
+    - name: Check for CMakeLists.txt
+      id: cmake_check
+      uses: andstor/file-existence-action@v2 # Corrected action name from previous context
+      with: # Added 'with' which is usually required for actions with inputs
+        files: "CMakeLists.txt"
